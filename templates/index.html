@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Stock Analyzer | Votre Conseiller Boursier</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Marked.js for markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <nav class="glass-nav">
+        <div class="nav-content">
+            <div class="logo">
+                <i class="fa-solid fa-chart-line gradient-text"></i>
+                <span>AI Stock Analyzer</span>
+            </div>
+            <button id="settings-btn" class="icon-btn" title="Paramètres de l'IA">
+                <i class="fa-solid fa-gear"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="container">
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal {% if not has_api_key %}active{% endif %}">
+            <div class="modal-content glass-panel">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-robot"></i> Configuration de l'IA</h2>
+                    <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <p class="settings-desc">
+                        Pour utiliser l'intelligence artificielle Gemini qui analysera vos actions, vous avez besoin d'une clé API gratuite.
+                        <br><br>
+                        1. Allez sur <a href="https://aistudio.google.com/app/apikey" target="_blank" class="accent-link">Google AI Studio</a>.<br>
+                        2. Connectez-vous et cliquez sur "Create API Key".<br>
+                        3. Copiez-collez votre clé ci-dessous.
+                    </p>
+                    <form id="settings-form">
+                        <div class="form-group">
+                            <label for="api-key">Clé API Google Gemini</label>
+                            <input type="password" id="api-key" placeholder="AIzaSy..." required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Enregistrer la clé</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <section class="glass-panel section-add">
+            <h2><i class="fa-solid fa-plus-circle"></i> Ajouter une Action / ETF / Fonds</h2>
+            <form id="add-stock-form" class="grid-form">
+                <div class="form-group form-group-search">
+                    <label for="search-query">Rechercher (nom ou ticker)</label>
+                    <div class="search-wrapper">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="search-query" placeholder="ex: Apple, AAPL, Lyxor, VWCE..." autocomplete="off">
+                        <div id="search-dropdown" class="search-dropdown hidden"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="symbol">Code (Ticker)</label>
+                    <input type="text" id="symbol" required placeholder="AAPL" style="text-transform:uppercase;">
+                </div>
+                <div class="form-group">
+                    <label for="name">Nom</label>
+                    <input type="text" id="name" required placeholder="Apple Inc.">
+                </div>
+                <div class="form-group">
+                    <label for="purchase_date">Date d'achat (optionnel)</label>
+                    <input type="date" id="purchase_date">
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Quantité</label>
+                    <input type="number" id="quantity" step="0.01" min="0" required placeholder="10">
+                </div>
+                <div class="form-group">
+                    <label for="purchase_price">Prix d'achat unitaire</label>
+                    <input type="number" id="purchase_price" step="0.01" min="0" required placeholder="150.00">
+                </div>
+                <div class="form-group">
+                    <label for="currency">Devise</label>
+                    <select id="currency">
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="CHF">CHF (Fr)</option>
+                        <option value="GBP">GBP (£)</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-gradient w-100">Ajouter au portefeuille</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Portfolio Overview -->
+        <section class="portfolio-section">
+            <div class="section-header">
+                <div>
+                    <h2><i class="fa-solid fa-wallet"></i> Votre Portefeuille</h2>
+                    <div class="view-toggles" style="margin-top: 10px;">
+                        <button id="view-grid" class="icon-btn active" title="Vue Grille"><i class="fa-solid fa-table-cells-large"></i></button>
+                        <button id="view-list" class="icon-btn" title="Vue Liste"><i class="fa-solid fa-list"></i></button>
+                    </div>
+                </div>
+                <div class="total-stats glass-panel">
+                    <span class="stat-label">Valorisation Totale (Est.)</span>
+                    <span class="stat-value" id="total-value">0.00</span>
+                </div>
+            </div>
+            
+            <div class="loading-state" id="stocks-loading">
+                <div class="spinner"></div>
+                <p>Récupération des données du marché...</p>
+            </div>
+
+            <div class="stocks-grid" id="stocks-container">
+                <!-- Stock cards will be injected here via JS -->
+            </div>
+        </section>
+
+        <!-- AI Analysis Modal -->
+        <div id="ai-modal" class="modal">
+            <div class="modal-content glass-panel modal-lg">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-sparkles gradient-text"></i> Analyse IA : <span id="ai-stock-name"></span></h2>
+                    <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div id="ai-loading" class="ai-loading">
+                        <div class="pulse-ring"></div>
+                        <p>L'IA analyse le marché et les actualités...</p>
+                    </div>
+                    <div id="ai-result" class="ai-result hidden">
+                        <div class="markdown-content" id="ai-markdown-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Stock Modal -->
+        <div id="edit-modal" class="modal">
+            <div class="modal-content glass-panel">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-pen-to-square gradient-text"></i> Modifier la position</h2>
+                    <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-stock-form" class="grid-form">
+                        <input type="hidden" id="edit-id">
+                        <div class="form-group">
+                            <label for="edit-symbol">Code (Ticker)</label>
+                            <input type="text" id="edit-symbol" required style="text-transform:uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-name">Nom</label>
+                            <input type="text" id="edit-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-quantity">Quantité</label>
+                            <input type="number" id="edit-quantity" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-purchase-price">Prix d'achat unitaire (PRU)</label>
+                            <input type="number" id="edit-purchase-price" step="0.0001" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-currency">Devise</label>
+                            <select id="edit-currency">
+                                <option value="USD">USD ($)</option>
+                                <option value="EUR">EUR (€)</option>
+                                <option value="CHF">CHF (Fr)</option>
+                                <option value="GBP">GBP (£)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-purchase-date">Date d'achat</label>
+                            <input type="date" id="edit-purchase-date">
+                        </div>
+                        <div class="form-actions" style="grid-column:1/-1; display:flex; gap:0.75rem;">
+                            <button type="submit" class="btn btn-gradient" style="flex:1;">
+                                <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+                            </button>
+                            <button type="button" class="btn btn-danger close-modal" style="flex:0 0 auto;">
+                                Annuler
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
