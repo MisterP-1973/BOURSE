@@ -243,10 +243,11 @@
                         </select>
                     </div>
 
-                    <!-- View Toggles -->
+                    <!-- View Toggles & Print -->
                     <div class="view-toggles">
                         <button id="view-grid" class="icon-btn active" title="Vue Cartes Grille"><i class="fa-solid fa-table-cells-large"></i></button>
                         <button id="view-list" class="icon-btn" title="Vue Tableau Liste"><i class="fa-solid fa-list"></i></button>
+                        <button id="print-portfolio-btn" class="icon-btn" title="Imprimer l'inventaire complet du portefeuille"><i class="fa-solid fa-print"></i></button>
                     </div>
                 </div>
             </div>
@@ -301,7 +302,10 @@
             <div class="modal-content glass-panel modal-lg">
                 <div class="modal-header">
                     <h2><i class="fa-solid fa-sparkles gradient-text"></i> Analyse IA : <span id="ai-stock-name"></span></h2>
-                    <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <button id="print-stock-ai-btn" class="icon-btn" title="Imprimer cette analyse"><i class="fa-solid fa-print"></i></button>
+                        <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
                 </div>
                 <div class="modal-body">
                     <div id="ai-loading" class="ai-loading">
@@ -321,7 +325,10 @@
             <div class="modal-content glass-panel modal-lg">
                 <div class="modal-header">
                     <h2><i class="fa-solid fa-wand-magic-sparkles gradient-text"></i> Audit Global & Stratégie de Portefeuille</h2>
-                    <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <button id="print-portfolio-audit-btn" class="icon-btn" title="Imprimer ce rapport d'audit"><i class="fa-solid fa-print"></i></button>
+                        <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
                 </div>
                 <div class="modal-body">
                     <div id="portfolio-audit-loading" class="ai-loading">

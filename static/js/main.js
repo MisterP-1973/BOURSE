@@ -869,6 +869,367 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- PRINTING UTILITIES ---
+    const printFormattedReport = (title, subtitle, contentHtml) => {
+        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) {
+            showToast('Veuillez autoriser les fenêtres pop-up pour imprimer le rapport.', 'warning');
+            return;
+        }
+
+        const today = new Date().toLocaleDateString('fr-FR', {
+            year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html lang="fr">
+            <head>
+                <meta charset="UTF-8">
+                <title>${title}</title>
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body {
+                        font-family: 'Inter', sans-serif;
+                        color: #1e293b;
+                        background: #ffffff;
+                        padding: 30px;
+                        line-height: 1.5;
+                        font-size: 13px;
+                    }
+                    .print-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                        border-bottom: 2px solid #0f172a;
+                        padding-bottom: 15px;
+                        margin-bottom: 20px;
+                    }
+                    .brand-title {
+                        font-size: 20px;
+                        font-weight: 800;
+                        color: #0f172a;
+                    }
+                    .report-title {
+                        font-size: 16px;
+                        font-weight: 700;
+                        color: #2563eb;
+                        margin-top: 4px;
+                    }
+                    .report-date {
+                        font-size: 11px;
+                        color: #64748b;
+                        text-align: right;
+                    }
+                    .kpi-row {
+                        display: grid;
+                        grid-template-columns: repeat(4, 1fr);
+                        gap: 12px;
+                        margin-bottom: 25px;
+                    }
+                    .kpi-box {
+                        border: 1px solid #e2e8f0;
+                        border-radius: 8px;
+                        padding: 10px 14px;
+                        background: #f8fafc;
+                    }
+                    .kpi-box-label {
+                        font-size: 10px;
+                        text-transform: uppercase;
+                        font-weight: 600;
+                        color: #64748b;
+                        margin-bottom: 4px;
+                    }
+                    .kpi-box-val {
+                        font-size: 15px;
+                        font-weight: 800;
+                        font-family: 'JetBrains Mono', monospace;
+                        color: #0f172a;
+                    }
+                    .positive { color: #16a34a !important; }
+                    .negative { color: #dc2626 !important; }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 25px;
+                        font-size: 12px;
+                    }
+                    th {
+                        background: #f1f5f9;
+                        border: 1px solid #cbd5e1;
+                        padding: 8px 10px;
+                        font-weight: 700;
+                        text-align: left;
+                        font-size: 11px;
+                        text-transform: uppercase;
+                        color: #334155;
+                    }
+                    td {
+                        border: 1px solid #e2e8f0;
+                        padding: 8px 10px;
+                    }
+                    tr:nth-child(even) {
+                        background: #f8fafc;
+                    }
+                    .num {
+                        text-align: right;
+                        font-family: 'JetBrains Mono', monospace;
+                    }
+                    .badge {
+                        display: inline-block;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                        font-size: 9px;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                    }
+                    .badge-acheter { background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
+                    .badge-vendre { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+                    .badge-conserver { background: #fef3c7; color: #d97706; border: 1px solid #fcd34d; }
+                    .badge-none { background: #f1f5f9; color: #64748b; }
+                    .markdown-content {
+                        line-height: 1.6;
+                        color: #334155;
+                        font-size: 13px;
+                    }
+                    .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+                        color: #0f172a;
+                        margin-top: 18px;
+                        margin-bottom: 8px;
+                    }
+                    .markdown-content h2 {
+                        border-bottom: 1px solid #e2e8f0;
+                        padding-bottom: 4px;
+                        font-size: 14px;
+                    }
+                    .markdown-content ul, .markdown-content ol {
+                        padding-left: 20px;
+                        margin-bottom: 12px;
+                    }
+                    .markdown-content p { margin-bottom: 10px; }
+                    .markdown-content blockquote {
+                        border-left: 3px solid #6366f1;
+                        background: #f5f3ff;
+                        padding: 8px 12px;
+                        margin: 12px 0;
+                        font-style: italic;
+                    }
+                    .print-footer {
+                        margin-top: 30px;
+                        border-top: 1px solid #e2e8f0;
+                        padding-top: 12px;
+                        font-size: 10px;
+                        color: #94a3b8;
+                        display: flex;
+                        justify-content: space-between;
+                    }
+                    @media print {
+                        body { padding: 0; }
+                        @page { margin: 1.5cm; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="print-header">
+                    <div>
+                        <div class="brand-title">AI STOCK ANALYZER</div>
+                        <div class="report-title">${title}</div>
+                        ${subtitle ? `<div style="font-size:12px; color:#64748b; margin-top:2px;">${subtitle}</div>` : ''}
+                    </div>
+                    <div class="report-date">
+                        <div>Édité le : <strong>${today}</strong></div>
+                        <div>Devise de référence : <strong>${portfolioData.ref_currency}</strong></div>
+                    </div>
+                </div>
+
+                ${contentHtml}
+
+                <div class="print-footer">
+                    <span>Document généré par AI Stock Analyzer & Gemini AI</span>
+                    <span>Page 1 / 1</span>
+                </div>
+                <script>
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.print();
+                        }, 400);
+                    };
+                </script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
+    // Print Portfolio Inventory
+    const printPortfolioBtn = document.getElementById('print-portfolio-btn');
+    if (printPortfolioBtn) {
+        printPortfolioBtn.addEventListener('click', () => {
+            const summary = portfolioData.summary || {};
+            const refCurr = portfolioData.ref_currency || 'CHF';
+            const isPlPos = summary.total_pl_value >= 0;
+            const isDayPos = summary.total_day_gain_value >= 0;
+
+            const kpisHtml = `
+                <div class="kpi-row">
+                    <div class="kpi-box">
+                        <div class="kpi-box-label">Valorisation Totale</div>
+                        <div class="kpi-box-val">${formatMoney(summary.total_value, refCurr)}</div>
+                        <div style="font-size:10px; color:#64748b;">Investi : ${formatMoney(summary.total_invested, refCurr)}</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-box-label">Plus/Moins-Value Latente</div>
+                        <div class="kpi-box-val ${isPlPos ? 'positive' : 'negative'}">
+                            ${isPlPos ? '+' : ''}${formatMoney(summary.total_pl_value, refCurr)}
+                        </div>
+                        <div style="font-size:10px;" class="${isPlPos ? 'positive' : 'negative'}">
+                            ${isPlPos ? '+' : ''}${summary.total_pl_percent ? summary.total_pl_percent.toFixed(2) : '0.00'}%
+                        </div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-box-label">Gain du Jour (Day Gain)</div>
+                        <div class="kpi-box-val ${isDayPos ? 'positive' : 'negative'}">
+                            ${isDayPos ? '+' : ''}${formatMoney(summary.total_day_gain_value, refCurr)}
+                        </div>
+                        <div style="font-size:10px;" class="${isDayPos ? 'positive' : 'negative'}">
+                            ${isDayPos ? '+' : ''}${summary.total_day_gain_percent ? summary.total_day_gain_percent.toFixed(2) : '0.00'}%
+                        </div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-box-label">Dividendes Annuels Estimés</div>
+                        <div class="kpi-box-val" style="color:#059669;">
+                            ${formatMoney(summary.total_annual_dividends, refCurr)}
+                        </div>
+                        <div style="font-size:10px; color:#64748b;">${summary.holdings_count || 0} positions actives</div>
+                    </div>
+                </div>
+            `;
+
+            let rowsHtml = '';
+            (portfolioData.stocks || []).forEach(s => {
+                const isPos = s.pl_value >= 0;
+                const plClass = isPos ? 'positive' : 'negative';
+                const plSign = isPos ? '+' : '';
+                const recClass = s.ai_recommendation ? `badge-${s.ai_recommendation.toLowerCase()}` : 'badge-none';
+
+                rowsHtml += `
+                    <tr>
+                        <td><strong>${s.symbol}</strong></td>
+                        <td>${s.name}</td>
+                        <td><span style="font-size:10px; color:#64748b;">${s.asset_type || 'Action'}</span></td>
+                        <td class="num">${s.quantity}</td>
+                        <td class="num">${s.purchase_price.toFixed(2)} ${s.currency}</td>
+                        <td class="num"><strong>${s.current_price.toFixed(2)} ${s.currency}</strong></td>
+                        <td class="num">${formatMoney(s.current_value_ref || s.current_value, refCurr)}</td>
+                        <td class="num ${plClass}">${plSign}${s.pl_percent.toFixed(2)}% (${plSign}${s.pl_value.toFixed(2)})</td>
+                        <td class="num">${s.dividend_yield ? s.dividend_yield.toFixed(1) + '%' : (s.pe_ratio ? 'PER: ' + s.pe_ratio.toFixed(1) : '—')}</td>
+                        <td style="text-align:center;"><span class="badge ${recClass}">${s.ai_recommendation || 'N/D'}</span></td>
+                    </tr>
+                `;
+            });
+
+            const tableHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Nom du Titre</th>
+                            <th>Type</th>
+                            <th style="text-align:right;">Qté</th>
+                            <th style="text-align:right;">PRU</th>
+                            <th style="text-align:right;">Cours</th>
+                            <th style="text-align:right;">Valeur (${refCurr})</th>
+                            <th style="text-align:right;">Plus-Value</th>
+                            <th style="text-align:right;">Rendement</th>
+                            <th style="text-align:center;">Avis IA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            `;
+
+            printFormattedReport(
+                'Inventaire & Rapport de Valorisation du Portefeuille',
+                `État des ${summary.holdings_count || 0} positions détenues`,
+                kpisHtml + tableHtml
+            );
+        });
+    }
+
+    // Print Portfolio Audit
+    const printPortfolioAuditBtn = document.getElementById('print-portfolio-audit-btn');
+    if (printPortfolioAuditBtn) {
+        printPortfolioAuditBtn.addEventListener('click', () => {
+            const auditContent = document.getElementById('portfolio-audit-markdown').innerHTML;
+            if (!auditContent || auditContent.trim() === '') {
+                showToast('Veuillez d\'abord générer l\'audit global avant de l\'imprimer.', 'warning');
+                return;
+            }
+
+            const summary = portfolioData.summary || {};
+            const refCurr = portfolioData.ref_currency || 'CHF';
+            const kpiSummary = `
+                <div class="kpi-row" style="margin-bottom: 20px;">
+                    <div class="kpi-box">
+                        <div class="kpi-box-label">Valorisation Portefeuille</div>
+                        <div class="kpi-box-val">${formatMoney(summary.total_value, refCurr)}</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-box-label">Plus-Value Globale</div>
+                        <div class="kpi-box-val ${summary.total_pl_value >= 0 ? 'positive' : 'negative'}">
+                            ${summary.total_pl_value >= 0 ? '+' : ''}${formatMoney(summary.total_pl_value, refCurr)}
+                        </div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-box-label">Nombre de Lignes</div>
+                        <div class="kpi-box-val">${summary.holdings_count || 0} actifs</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-box-label">Moteur IA</div>
+                        <div class="kpi-box-val" style="font-size:13px; color:#6366f1;">Gemini 3.x Flash</div>
+                    </div>
+                </div>
+            `;
+
+            printFormattedReport(
+                'Rapport d\'Audit Stratégique Global du Portefeuille',
+                'Diagnostic complet de diversification, risque et rééquilibrage',
+                kpiSummary + `<div class="markdown-content">${auditContent}</div>`
+            );
+        });
+    }
+
+    // Print Individual Stock AI Analysis
+    const printStockAiBtn = document.getElementById('print-stock-ai-btn');
+    if (printStockAiBtn) {
+        printStockAiBtn.addEventListener('click', () => {
+            const stockName = document.getElementById('ai-stock-name').textContent;
+            const recBadgeHtml = document.getElementById('ai-rec-badge-row').innerHTML;
+            const analysisHtml = document.getElementById('ai-markdown-content').innerHTML;
+
+            if (!analysisHtml || analysisHtml.trim() === '') {
+                showToast('Aucune analyse disponible pour l\'impression.', 'warning');
+                return;
+            }
+
+            const headerHtml = `
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px; margin-bottom:20px;">
+                    <div style="font-size:16px; font-weight:700; color:#0f172a; margin-bottom:6px;">${stockName}</div>
+                    <div>${recBadgeHtml}</div>
+                </div>
+            `;
+
+            printFormattedReport(
+                `Analyse Financière & Conseil IA : ${stockName}`,
+                'Étude fondamentale, actualités et recommandation de marché',
+                headerHtml + `<div class="markdown-content">${analysisHtml}</div>`
+            );
+        });
+    }
+
     // --- INITIAL LOAD ---
     loadStocks();
 });
