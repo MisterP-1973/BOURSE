@@ -382,12 +382,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.className = 'search-item';
                     const rawType = (r.type || 'Equity').toUpperCase();
                     const cleanType = typeMapping[rawType] || 'Equity';
+                    const isinBadge = r.isin ? `<span class="badge-type" style="background:rgba(139,92,246,0.25); color:#c084fc; border:1px solid rgba(139,92,246,0.4);">ISIN: ${r.isin}</span>` : '';
+
                     item.innerHTML = `
                         <div class="search-item-main">
                             <span class="search-symbol">${r.symbol}</span>
                             <span class="search-name">${r.name}</span>
                         </div>
                         <div class="search-item-meta">
+                            ${isinBadge}
                             <span class="badge-type badge-type-${cleanType.toLowerCase()}">${cleanType}</span>
                             <span class="search-exchange">${r.exchange || ''}</span>
                         </div>

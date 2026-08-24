@@ -322,24 +322,32 @@ def index():
 
 @app.route('/api/search', methods=['GET'])
 def search_ticker():
-    """Search for stocks, ETFs, and funds by name or ticker symbol."""
+    """Search for stocks, ETFs, and funds by ticker symbol, company name, or ISIN code."""
     query = request.args.get('q', '').strip()
     if not query or len(query) < 2:
         return jsonify([])
+    
+    is_isin = bool(len(query) == 12 and query[:2].isalpha() and query[2:].isalnum())
+
     try:
         search = yf.Search(query, max_results=8)
         quotes = search.quotes
         results = []
         for q in quotes:
             symbol = q.get('symbol', '')
+            if not symbol:
+                continue
             name = q.get('longname') or q.get('shortname') or symbol
-            type_disp = q.get('typeDisp', q.get('quoteType', ''))
+            type_disp = q.get('typeDisp', q.get('quoteType', 'Equity'))
             exchange = q.get('exchange', '')
+            
             results.append({
                 'symbol': symbol,
                 'name': name,
                 'type': type_disp,
-                'exchange': exchange
+                'exchange': exchange,
+                'is_isin': is_isin,
+                'isin': query.upper() if is_isin else None
             })
         return jsonify(results)
     except Exception as e:
