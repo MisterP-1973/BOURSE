@@ -941,6 +941,57 @@ CONSIGNES DE RÉDACTION (en français, format Markdown riche) :
     except Exception as e:
         return jsonify({'error': f"Erreur Gemini IA: {str(e)}"}), 500
 
+# --- PORTFOLIO NEWS FEED ---
+PORTFOLIO_NEWS_CACHE = {'timestamp': 0, 'news': []}
+NEWS_CACHE_TTL = 300
+
+@app.route('/api/news', methods=['GET'])
+def get_portfolio_news():
+    """Aggregate and return latest important news across all portfolio holdings."""
+    global PORTFOLIO_NEWS_CACHE
+    now = time.time()
+    force_refresh = request.args.get('refresh', '0') == '1'
+    symbol_filter = request.args.get('symbol', '').strip().upper()
+
+    if not force_refresh and PORTFOLIO_NEWS_CACHE['news'] and (now - PORTFOLIO_NEWS_CACHE['timestamp'] < NEWS_CACHE_TTL):
+        all_news = PORTFOLIO_NEWS_CACHE['news']
+    else:
+        stocks = Stock.query.all()
+        all_news = []
+        seen = set()
+
+        with ThreadPoolExecutor(max_workers=min(8, max(len(stocks), 1))) as executor:
+            future_to_stock = {
+                executor.submit(fetch_multi_source_news, s.symbol, s.name): s
+                for s in stocks
+            }
+            for future in as_completed(future_to_stock):
+                s = future_to_stock[future]
+                try:
+                    articles = future.result()
+                    for a in articles:
+                        key = a['title'].lower()[:40]
+                        if key not in seen:
+                            seen.add(key)
+                            all_news.append({
+                                'title': a['title'],
+                                'publisher': a['publisher'],
+                                'link': a['link'],
+                                'symbol': s.symbol,
+                                'stock_name': s.name,
+                                'asset_type': s.asset_type or 'Equity'
+                            })
+                except Exception as e:
+                    print(f"Error fetching news for {s.symbol}: {e}")
+
+        PORTFOLIO_NEWS_CACHE = {'timestamp': now, 'news': all_news}
+
+    if symbol_filter:
+        filtered = [n for n in all_news if n['symbol'] == symbol_filter]
+        return jsonify({'news': filtered, 'count': len(filtered)})
+
+    return jsonify({'news': all_news, 'count': len(all_news)})
+
 # --- EXPORT & IMPORT ---
 
 @app.route('/api/stocks/export', methods=['GET'])

@@ -49,6 +49,11 @@
                     </select>
                 </div>
 
+                <!-- Flash News Button -->
+                <button id="nav-news-btn" class="icon-btn" title="Flash Actualités du Portefeuille">
+                    <i class="fa-solid fa-newspaper"></i>
+                </button>
+
                 <!-- Refresh Button -->
                 <button id="refresh-btn" class="icon-btn" title="Rafraîchir les cours">
                     <i class="fa-solid fa-arrows-rotate"></i>
@@ -142,6 +147,38 @@
                     <div class="allocation-breakdown" id="allocation-legend-container">
                         <!-- Legend items injected via JS -->
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Flash News Feed Section (Collapsible) -->
+        <section class="glass-panel news-feed-section" id="news-feed-section">
+            <div class="news-feed-header" id="news-feed-toggle-btn">
+                <div class="news-feed-title">
+                    <i class="fa-solid fa-newspaper gradient-text"></i>
+                    <h3>Flash & Nouvelles Importantes du Portefeuille</h3>
+                    <span class="news-count-badge" id="news-total-badge">...</span>
+                </div>
+                <div class="news-feed-controls" onclick="event.stopPropagation();">
+                    <select id="news-symbol-filter" class="sort-select" style="font-size:0.8rem; padding:0.25rem 0.6rem;">
+                        <option value="">Tous les titres</option>
+                    </select>
+                    <button id="refresh-news-btn" class="icon-btn" style="width:30px; height:30px; font-size:0.75rem;" title="Rafraîchir les actualités">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                    <div class="allocation-toggle-icon" style="cursor:pointer;" onclick="document.getElementById('news-feed-toggle-btn').click();">
+                        <span id="news-toggle-label">Afficher</span>
+                        <i class="fa-solid fa-chevron-down" id="news-chevron"></i>
+                    </div>
+                </div>
+            </div>
+            <div id="news-feed-content" class="news-feed-content hidden">
+                <div class="news-loading-state" id="news-loading" style="display:none; text-align:center; padding:1.5rem 0; color:var(--text-secondary);">
+                    <div class="spinner" style="width:30px; height:30px; margin:0 auto 0.5rem;"></div>
+                    <p style="font-size:0.85rem;">Agrégation des actualités en direct (Boursorama, Zonebourse, Bloomberg, Reuters, Les Echos...)...</p>
+                </div>
+                <div class="news-grid" id="news-cards-container">
+                    <!-- News cards injected via JS -->
                 </div>
             </div>
         </section>

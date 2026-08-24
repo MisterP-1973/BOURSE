@@ -139,6 +139,106 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- NEWS FEED SECTION TOGGLE & LOGIC ---
+    const navNewsBtn = document.getElementById('nav-news-btn');
+    const newsFeedToggleBtn = document.getElementById('news-feed-toggle-btn');
+    const newsFeedContent = document.getElementById('news-feed-content');
+    const newsChevron = document.getElementById('news-chevron');
+    const newsToggleLabel = document.getElementById('news-toggle-label');
+    const newsTotalBadge = document.getElementById('news-total-badge');
+    const newsSymbolFilter = document.getElementById('news-symbol-filter');
+    const refreshNewsBtn = document.getElementById('refresh-news-btn');
+    const newsLoading = document.getElementById('news-loading');
+    const newsCardsContainer = document.getElementById('news-cards-container');
+    let newsLoadedOnce = false;
+
+    const toggleNewsSection = (forceOpen = false) => {
+        const isHidden = newsFeedContent.classList.contains('hidden');
+        if (isHidden || forceOpen) {
+            newsFeedContent.classList.remove('hidden');
+            newsFeedToggleBtn.classList.add('active');
+            newsToggleLabel.textContent = 'Masquer';
+            if (!newsLoadedOnce) {
+                loadPortfolioNews();
+                newsLoadedOnce = true;
+            }
+        } else {
+            newsFeedContent.classList.add('hidden');
+            newsFeedToggleBtn.classList.remove('active');
+            newsToggleLabel.textContent = 'Afficher';
+        }
+    };
+
+    newsFeedToggleBtn.addEventListener('click', () => toggleNewsSection());
+    if (navNewsBtn) {
+        navNewsBtn.addEventListener('click', () => {
+            toggleNewsSection(true);
+            document.getElementById('news-feed-section').scrollIntoView({ behavior: 'smooth' });
+        });
+    }
+
+    const loadPortfolioNews = async (forceRefresh = false) => {
+        newsLoading.style.display = 'block';
+        newsCardsContainer.innerHTML = '';
+        const symbol = newsSymbolFilter.value || '';
+
+        try {
+            const url = `/api/news?refresh=${forceRefresh ? '1' : '0'}&symbol=${encodeURIComponent(symbol)}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            newsLoading.style.display = 'none';
+
+            newsTotalBadge.textContent = `${data.count || 0} news`;
+            renderPortfolioNews(data.news || []);
+        } catch (err) {
+            newsLoading.style.display = 'none';
+            newsCardsContainer.innerHTML = '<p style="color:var(--danger); grid-column:1/-1; text-align:center;">Erreur lors de la récupération des actualités.</p>';
+        }
+    };
+
+    const renderPortfolioNews = (newsList) => {
+        newsCardsContainer.innerHTML = '';
+        if (!newsList.length) {
+            newsCardsContainer.innerHTML = '<p style="color:var(--text-secondary); grid-column:1/-1; text-align:center; padding:2rem 0;">Aucune actualité disponible pour cette sélection.</p>';
+            return;
+        }
+
+        newsList.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'news-card';
+            card.innerHTML = `
+                <div>
+                    <div class="news-card-header">
+                        <span class="news-publisher-tag"><i class="fa-solid fa-newspaper"></i> ${item.publisher}</span>
+                        <span class="news-stock-tag">${item.symbol}</span>
+                    </div>
+                    <div class="news-card-title" title="${item.title}">${item.title}</div>
+                </div>
+                <div class="news-card-footer">
+                    <span style="font-size:0.75rem; color:var(--text-muted);">${item.stock_name}</span>
+                    ${item.link ? `<a href="${item.link}" target="_blank" class="news-link-btn">Lire l'article <i class="fa-solid fa-arrow-up-right-from-square"></i></a>` : ''}
+                </div>
+            `;
+            newsCardsContainer.appendChild(card);
+        });
+    };
+
+    if (refreshNewsBtn) {
+        refreshNewsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            refreshNewsBtn.classList.add('fa-spin');
+            loadPortfolioNews(true).finally(() => {
+                setTimeout(() => refreshNewsBtn.classList.remove('fa-spin'), 600);
+            });
+        });
+    }
+
+    if (newsSymbolFilter) {
+        newsSymbolFilter.addEventListener('change', () => {
+            loadPortfolioNews(false);
+        });
+    }
+
     // --- ADD FORM TOGGLE ---
     let isAddFormCollapsed = false;
     toggleAddFormBtn.addEventListener('click', () => {
@@ -356,6 +456,19 @@ document.addEventListener('DOMContentLoaded', () => {
             portfolioData = await res.json();
             stocksLoading.style.display = 'none';
             
+            // Populate news symbol filter
+            if (newsSymbolFilter) {
+                const currentVal = newsSymbolFilter.value;
+                newsSymbolFilter.innerHTML = '<option value="">Tous les titres</option>';
+                (portfolioData.stocks || []).forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.symbol;
+                    opt.textContent = `${s.symbol} — ${s.name}`;
+                    if (s.symbol === currentVal) opt.selected = true;
+                    newsSymbolFilter.appendChild(opt);
+                });
+            }
+
             renderKPIs(portfolioData.summary, portfolioData.ref_currency);
             renderStocks();
             renderAllocationDonut();
