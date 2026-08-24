@@ -108,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- VIEW TOGGLES ---
     const applyView = (viewType) => {
+        currentView = viewType;
         if (viewType === 'list') {
             stocksContainer.className = 'stocks-list';
             viewListBtn.classList.add('active');
@@ -118,7 +119,9 @@ document.addEventListener('DOMContentLoaded', () => {
             viewListBtn.classList.remove('active');
         }
         localStorage.setItem('portfolioView', viewType);
-        currentView = viewType;
+        if (portfolioData && portfolioData.stocks) {
+            renderStocks();
+        }
     };
     applyView(currentView);
     viewGridBtn.addEventListener('click', () => applyView('grid'));
@@ -641,6 +644,155 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p>Aucune position ne correspond à vos critères.</p>
                 </div>
             `;
+            return;
+        }
+
+        if (currentView === 'list') {
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = 'table-responsive glass-panel';
+            tableWrapper.innerHTML = `
+                <table class="stocks-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;">Titre & Actif</th>
+                            <th style="text-align:right;">Cours</th>
+                            <th style="text-align:center;">Var. 24h</th>
+                            <th style="text-align:center;">Tendance 7j</th>
+                            <th style="text-align:center;">Avis Titre</th>
+                            <th style="text-align:right;">Qte × PRU</th>
+                            <th style="text-align:right;">Valeur (${portfolioData.ref_currency})</th>
+                            <th style="text-align:right;">Gain/Perte (${portfolioData.ref_currency})</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stocks-table-body"></tbody>
+                </table>
+            `;
+            stocksContainer.appendChild(tableWrapper);
+            const tbody = document.getElementById('stocks-table-body');
+
+            filtered.forEach(stock => {
+                const isPositive = stock.pl_value >= 0;
+                const plClass = isPositive ? 'positive' : 'negative';
+                const plSign = isPositive ? '+' : '';
+
+                const isDayPos = (stock.day_change || 0) >= 0;
+                const dayClass = isDayPos ? 'positive' : 'negative';
+                const daySign = isDayPos ? '+' : '';
+
+                const effectiveRec = stock.effective_recommendation || stock.ai_recommendation || 'CONSERVER';
+                const recClass = `badge-${effectiveRec.toLowerCase()}`;
+                let recIcon = 'fa-sparkles';
+                let recTitle = 'Recommandation analysée par Gemini IA';
+                let recLabel = effectiveRec;
+                
+                if (stock.recommendation_source === 'consensus') {
+                    recIcon = 'fa-chart-line';
+                    recTitle = `Consensus direct des analystes Wall Street (${stock.num_analysts || 15} analystes)`;
+                } else if (stock.recommendation_source === 'trend') {
+                    recIcon = 'fa-arrow-trend-up';
+                    recTitle = 'Tendance technique de cours';
+                }
+
+                const recHtml = `<span class="badge ${recClass}" title="${recTitle}"><i class="fa-solid ${recIcon}"></i> ${recLabel}</span>`;
+                const cleanType = stock.asset_type || 'Equity';
+                const typeBadge = `<span class="badge-type badge-type-${cleanType.toLowerCase()}">${cleanType}</span>`;
+                const isDifferentCurr = stock.currency !== portfolioData.ref_currency;
+                const convertedValSub = isDifferentCurr ? 
+                    `<div class="price-converted-sub">≈ ${formatMoney(stock.current_value_ref, portfolioData.ref_currency)}</div>` : '';
+                const manualBadge = stock.is_manual_price ? 
+                    `<span class="badge-manual-tag" onclick="openEditModal(${stock.id})" title="Cours actuel saisi manuellement (cliquez pour ajuster)"><i class="fa-solid fa-pen-to-square"></i> Manuel</span>` : '';
+
+                const canvasId = `sparkline-tbl-${stock.id}`;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:2px;">
+                            <span class="symbol-badge">${stock.symbol}</span>
+                            ${typeBadge}
+                            ${manualBadge}
+                        </div>
+                        <div class="stock-name-title" title="${stock.name}">${stock.name}</div>
+                    </td>
+                    <td style="text-align:right;">
+                        <div class="price-main">${formatMoney(stock.current_price, stock.currency)}</div>
+                        ${convertedValSub}
+                    </td>
+                    <td style="text-align:center;">
+                        <div class="day-gain-pill ${dayClass}" style="display:inline-flex;">
+                            <i class="fa-solid fa-caret-${isDayPos ? 'up' : 'down'}"></i>
+                            <span>${daySign}${stock.day_change_percent ? stock.day_change_percent.toFixed(2) : '0.00'}%</span>
+                        </div>
+                    </td>
+                    <td style="text-align:center;">
+                        <div class="sparkline-container" style="margin:0 auto; width:85px; height:28px;">
+                            <canvas id="${canvasId}"></canvas>
+                        </div>
+                    </td>
+                    <td style="text-align:center;">
+                        ${recHtml}
+                    </td>
+                    <td style="text-align:right; font-family:var(--font-mono); font-size:0.85rem;">
+                        <div>${stock.quantity} × ${stock.purchase_price.toFixed(2)}</div>
+                        <div style="font-size:0.72rem; color:var(--text-secondary);">${stock.currency}</div>
+                    </td>
+                    <td style="text-align:right; font-family:var(--font-mono);">
+                        <div style="font-weight:700; font-size:0.92rem;">${formatMoney(stock.current_value_ref || stock.current_value, portfolioData.ref_currency)}</div>
+                        ${isDifferentCurr ? `<div style="font-size:0.72rem; color:var(--text-secondary);">${formatMoney(stock.current_value, stock.currency)}</div>` : ''}
+                    </td>
+                    <td style="text-align:right; font-family:var(--font-mono);">
+                        <div class="${plClass}" style="font-weight:700; font-size:0.92rem;">${plSign}${formatMoney(stock.pl_value_ref !== undefined ? stock.pl_value_ref : stock.pl_value, portfolioData.ref_currency)}</div>
+                        <div class="${plClass}" style="font-size:0.72rem;">${plSign}${stock.pl_percent.toFixed(2)}%</div>
+                    </td>
+                    <td style="text-align:right;">
+                        <div class="card-actions-group" style="justify-content:flex-end;">
+                            <button class="btn btn-sm btn-secondary" onclick="openInteractiveChart('${stock.symbol}', '${stock.name.replace(/'/g, "\\'")}')" title="Graphique historique">
+                                <i class="fa-solid fa-chart-area"></i>
+                            </button>
+                            <button class="btn btn-sm btn-gradient" onclick="analyzeStock(${stock.id}, '${stock.symbol}', '${stock.name.replace(/'/g, "\\'")}')" title="Analyser avec Gemini IA">
+                                <i class="fa-solid fa-sparkles"></i> IA
+                            </button>
+                            <button class="btn btn-sm btn-secondary" onclick="openEditModal(${stock.id})" title="Modifier">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="openDeleteModal(${stock.id}, '${stock.symbol}')" title="Supprimer">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+
+                // Render sparkline for table
+                if (stock.sparkline && stock.sparkline.length > 1) {
+                    setTimeout(() => {
+                        const spkCanvas = document.getElementById(canvasId);
+                        if (spkCanvas) {
+                            const spkColor = isDayPos ? '#10b981' : '#ef4444';
+                            sparklineCharts[canvasId] = new Chart(spkCanvas, {
+                                type: 'line',
+                                data: {
+                                    labels: stock.sparkline.map((_, i) => i),
+                                    datasets: [{
+                                        data: stock.sparkline,
+                                        borderColor: spkColor,
+                                        borderWidth: 2,
+                                        pointRadius: 0,
+                                        fill: false,
+                                        tension: 0.3
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                                    scales: { x: { display: false }, y: { display: false } }
+                                }
+                            });
+                        }
+                    }, 10);
+                }
+            });
             return;
         }
 
