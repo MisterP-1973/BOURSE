@@ -683,14 +683,14 @@ input:focus, select:focus {
         align-items: center;
         justify-content: space-between;
         flex-wrap: wrap;
-        padding: clamp(0.75rem, 1.2vw, 1.2rem) clamp(1rem, 2vw, 2.25rem);
-        gap: clamp(1rem, 2vw, 2.5rem);
+        padding: 0.9rem 1.75rem;
+        gap: 1.5rem 2rem;
     }
 
     .stocks-list .stock-card .card-top {
-        flex: 1 1 200px;
-        min-width: 180px;
-        max-width: 300px;
+        flex: 1 1 240px;
+        min-width: 210px;
+        max-width: 340px;
         margin: 0;
         align-items: flex-start;
         justify-content: flex-start;
@@ -702,7 +702,7 @@ input:focus, select:focus {
     }
 
     .stocks-list .stock-card .card-price-block {
-        flex: 0 1 auto;
+        flex: 0 0 auto;
         min-width: 105px;
         display: flex;
         flex-direction: column;
@@ -711,13 +711,16 @@ input:focus, select:focus {
     }
 
     .stocks-list .stock-card .card-middle {
-        flex: 0 1 auto;
-        min-width: 180px;
+        flex: 0 0 auto;
+        min-width: 320px;
         background: transparent;
         border: none;
         padding: 0;
         gap: 0.85rem;
+        display: flex;
+        align-items: center;
         justify-content: flex-start;
+        flex-wrap: nowrap;
     }
 
     .stocks-list .stock-card .sparkline-container {
@@ -727,13 +730,19 @@ input:focus, select:focus {
     }
 
     .stocks-list .stock-card .card-metrics-grid {
-        flex: 1 1 260px;
-        min-width: 230px;
+        flex: 1 1 300px;
+        min-width: 290px;
         border-top: none;
         padding-top: 0;
-        gap: clamp(1rem, 1.5vw, 2rem);
+        gap: 1.5rem;
         display: flex;
         justify-content: space-around;
+        align-items: center;
+    }
+
+    .stocks-list .stock-card .metric-box {
+        min-width: 80px;
+        flex-shrink: 0;
     }
 
     .stocks-list .stock-card .card-bottom-bar {
