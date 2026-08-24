@@ -678,6 +678,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const convertedValSub = isDifferentCurr ? 
                 `<div class="price-converted-sub">≈ ${formatMoney(stock.current_value_ref, portfolioData.ref_currency)}</div>` : '';
 
+            const manualBadge = stock.is_manual_price ? 
+                `<span class="badge-manual-tag" onclick="openEditModal(${stock.id})" title="Cours actuel saisi manuellement (cliquez pour ajuster)"><i class="fa-solid fa-pen-to-square"></i> Manuel</span>` : '';
+
             const card = document.createElement('div');
             card.className = 'stock-card glass-panel';
 
@@ -685,17 +688,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `
                 <div class="card-top">
-                    <div>
+                    <div style="min-width:0; flex:1;">
                         <div class="symbol-type-row">
                             <span class="symbol-badge">${stock.symbol}</span>
                             ${typeBadge}
+                            ${manualBadge}
                         </div>
                         <div class="stock-name-title" title="${stock.name}">${stock.name}</div>
                     </div>
                     <div class="card-price-block">
                         <div class="price-main">${formatMoney(stock.current_price, stock.currency)}</div>
                         ${convertedValSub}
-                        ${stock.is_manual_price ? `<div style="margin-top:2px;"><span class="badge-manual-tag" onclick="openEditModal(${stock.id})" style="cursor:pointer; font-size:0.68rem; background:rgba(234,179,8,0.2); color:#facc15; border:1px solid rgba(234,179,8,0.4); padding:0.1rem 0.45rem; border-radius:4px; font-weight:600;" title="Cours saisi manuellement (cliquez pour modifier)"><i class="fa-solid fa-pen"></i> Manuel</span></div>` : ''}
                     </div>
                 </div>
 
