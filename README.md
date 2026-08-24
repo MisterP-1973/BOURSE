@@ -20,7 +20,9 @@
 | 🍩 **Allocation d'Actifs (Donut Chart)** | Visualisation de la répartition du portefeuille par symbole et classe d'actifs |
 | 🤖 **Audit Global IA du Portefeuille** | Diagnostic complet Gemini : score de diversification (0-100), analyse des risques, détection des doublons et rééquilibrage |
 | 🎯 **Analyse IA par Titre Fiabilisée** | Recommandation structurée (ACHETER / CONSERVER / VENDRE) intégrant ratios financiers (PER, dividendes) et actualités |
-| 💰 **Revenus & Dividendes Annuels** | Calcul automatique du cash flow annuel estimé en dividendes |
+| 💰 **Revenus & Dividendes Annuels** | Calcul automatique du cash flow annuel estimé en dividendes réels |
+| 🖨️ **Impression PDF / A4** | Impression soignée de l'inventaire complet du portefeuille, de l'audit global IA et des analyses de titres |
+| ⚡ **Recommandations Directes & Batch IA** | Consensus analystes Wall Street en direct et actualisation automatique de tous les avis IA en 1 clic |
 | 🔍 **Recherche, Filtres & Tris Rapides** | Filtre instantané par texte, type d'actif (Action, ETF, Fonds) et tri (Valeur, Plus-value %, Perf du jour) |
 | 💾 **Import / Export CSV & JSON** | Sauvegarde locale complète et importation rapide de vos positions |
 | 📱 **Vue Grille & Tableau Liste** | Deux modes d'affichage modernes glassmorphism avec mémorisation de vos préférences |
