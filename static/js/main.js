@@ -372,7 +372,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchDropdown.innerHTML = '';
 
                 if (results.length === 0) {
-                    searchDropdown.innerHTML = '<div class="search-no-result">Aucun résultat trouvé</div>';
+                    searchDropdown.innerHTML = `
+                        <div class="search-no-result" style="padding:1rem; text-align:center;">
+                            <div style="margin-bottom:0.6rem; color:var(--text-secondary); font-size:0.85rem;">Aucun ticker direct trouvé</div>
+                            <a href="https://www.swissquote.ch/trading/search?query=${encodeURIComponent(q)}" target="_blank" class="btn btn-sm btn-secondary" style="font-size:0.78rem; text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;" onclick="event.stopPropagation();">
+                                🇨🇭 Rechercher « ${q} » sur Swissquote.ch <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                            </a>
+                        </div>
+                    `;
                     searchDropdown.classList.remove('hidden');
                     return;
                 }
@@ -908,16 +915,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 aiMarkdownContent.innerHTML = marked.parse(data.analysis) + newsSourcesHtml;
-                if (data.recommendation) {
-                    aiRecBadgeRow.innerHTML = `
-                        <div style="margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem;">
+                aiRecBadgeRow.innerHTML = `
+                    <div style="margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
                             <span style="font-size:0.85rem; color:var(--text-secondary);">Avis IA Gemini :</span>
-                            <span class="badge badge-${data.recommendation.toLowerCase()}" style="font-size:0.9rem; padding:0.4rem 0.9rem;">
-                                <i class="fa-solid fa-sparkles"></i> ${data.recommendation}
+                            <span class="badge badge-${(data.recommendation || 'conserver').toLowerCase()}" style="font-size:0.9rem; padding:0.4rem 0.9rem;">
+                                <i class="fa-solid fa-sparkles"></i> ${data.recommendation || 'CONSERVER'}
                             </span>
                         </div>
-                    `;
-                }
+                        <a href="https://www.swissquote.ch/trading/search?query=${encodeURIComponent(symbol.split('.')[0])}" target="_blank" class="btn btn-sm btn-secondary" style="font-size:0.78rem; text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;" title="Ouvrir la fiche de cotation sur Swissquote.ch">
+                            🇨🇭 Fiche Swissquote.ch <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </div>
+                `;
                 loadStocks(); // Update recommendation in background
             } else {
                 aiMarkdownContent.innerHTML = `<p style="color:var(--danger)">${data.error || 'Erreur lors de l\'analyse'}</p>`;

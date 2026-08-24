@@ -679,17 +679,21 @@ def fetch_multi_source_news(symbol, name):
             return []
 
     def get_gnews_fr():
-        return fetch_rss_news(f"{clean_name} {base_sym} bourse", lang='fr', max_items=4)
+        return fetch_rss_news(f"{clean_name} {base_sym} bourse", lang='fr', max_items=3)
 
     def get_gnews_en():
-        return fetch_rss_news(f"{clean_name} {base_sym} stock financial earnings", lang='en', max_items=4)
+        return fetch_rss_news(f"{clean_name} {base_sym} stock financial earnings", lang='en', max_items=3)
 
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    def get_swissquote():
+        return fetch_rss_news(f"{clean_name} {base_sym} swissquote OR suisse", lang='fr', max_items=3)
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
         f_yf = executor.submit(get_yf)
         f_fr = executor.submit(get_gnews_fr)
         f_en = executor.submit(get_gnews_en)
+        f_sq = executor.submit(get_swissquote)
 
-        for f in [f_yf, f_fr, f_en]:
+        for f in [f_yf, f_fr, f_en, f_sq]:
             try:
                 for item in f.result():
                     norm = item['title'].lower()[:40]
