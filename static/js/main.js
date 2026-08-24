@@ -766,7 +766,29 @@ document.addEventListener('DOMContentLoaded', () => {
             aiResult.classList.remove('hidden');
             
             if (res.ok) {
-                aiMarkdownContent.innerHTML = marked.parse(data.analysis);
+                let newsSourcesHtml = '';
+                if (data.news_items && data.news_items.length) {
+                    newsSourcesHtml = `
+                        <div class="news-sources-box" style="margin-top:1.5rem; padding:1rem; background:rgba(0,0,0,0.25); border:1px solid var(--surface-border); border-radius:var(--border-radius-md);">
+                            <div style="font-size:0.85rem; font-weight:700; color:#60a5fa; margin-bottom:0.75rem; display:flex; align-items:center; gap:0.5rem;">
+                                <i class="fa-solid fa-newspaper"></i> Sources d'actualités analysées (${data.news_items.length} articles) :
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:0.45rem;">
+                                ${data.news_items.map(item => `
+                                    <div style="display:flex; align-items:baseline; justify-content:space-between; gap:0.75rem; font-size:0.82rem;">
+                                        <div style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                            <span style="font-weight:700; color:#a78bfa;">[${item.publisher}]</span>
+                                            <span style="color:var(--text-secondary);">${item.title}</span>
+                                        </div>
+                                        ${item.link ? `<a href="${item.link}" target="_blank" class="accent-link" style="font-size:0.75rem; flex-shrink:0;">Lire <i class="fa-solid fa-arrow-up-right-from-square"></i></a>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                aiMarkdownContent.innerHTML = marked.parse(data.analysis) + newsSourcesHtml;
                 if (data.recommendation) {
                     aiRecBadgeRow.innerHTML = `
                         <div style="margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem;">

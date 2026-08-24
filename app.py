@@ -3,6 +3,9 @@ import json
 import time
 import csv
 import io
+import urllib.request
+import urllib.parse
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, render_template, request, jsonify, Response
@@ -609,6 +612,87 @@ def call_gemini_with_fallback(api_key, prompt):
 
     raise Exception(f"Échec des modèles Gemini ({last_error})")
 
+def fetch_rss_news(query, lang='fr', max_items=4):
+    """Fetch recent news from Google News RSS in specified language."""
+    try:
+        encoded = urllib.parse.quote(query)
+        if lang == 'fr':
+            url = f"https://news.google.com/rss/search?q={encoded}&hl=fr&gl=FR&ceid=FR:fr"
+        else:
+            url = f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en"
+            
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        with urllib.request.urlopen(req, timeout=4) as response:
+            xml_data = response.read()
+            root = ET.fromstring(xml_data)
+            items = []
+            for item in root.findall('.//item')[:max_items]:
+                title = item.find('title').text if item.find('title') is not None else ''
+                source = item.find('source').text if item.find('source') is not None else ('Presse FR' if lang == 'fr' else 'Presse US')
+                link = item.find('link').text if item.find('link') is not None else ''
+                
+                if ' - ' in title:
+                    title_clean = title.rsplit(' - ', 1)[0]
+                else:
+                    title_clean = title
+
+                if title_clean:
+                    items.append({
+                        'title': title_clean.strip(),
+                        'publisher': source.strip(),
+                        'link': link.strip()
+                    })
+            return items
+    except Exception as e:
+        print(f"Error fetching RSS news ({lang}): {e}")
+        return []
+
+def fetch_multi_source_news(symbol, name):
+    """Aggregate real-time financial news across Yahoo Finance, Google News FR/CH and Global media."""
+    articles = []
+    seen_titles = set()
+
+    base_sym = symbol.split('.')[0] if '.' in symbol else symbol
+    clean_name = name.replace('Inc.', '').replace('ORD', '').replace('REIT', '').replace('Corp', '').replace('SA', '').strip()
+
+    def get_yf():
+        try:
+            ticker = yf.Ticker(symbol)
+            yf_news = ticker.news or []
+            res = []
+            for n in yf_news[:4]:
+                t = n.get('title')
+                p = n.get('publisher') or 'Yahoo Finance'
+                l = n.get('link') or ''
+                if t:
+                    res.append({'title': t.strip(), 'publisher': p.strip(), 'link': l})
+            return res
+        except Exception:
+            return []
+
+    def get_gnews_fr():
+        return fetch_rss_news(f"{clean_name} {base_sym} bourse", lang='fr', max_items=4)
+
+    def get_gnews_en():
+        return fetch_rss_news(f"{clean_name} {base_sym} stock financial earnings", lang='en', max_items=4)
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        f_yf = executor.submit(get_yf)
+        f_fr = executor.submit(get_gnews_fr)
+        f_en = executor.submit(get_gnews_en)
+
+        for f in [f_yf, f_fr, f_en]:
+            try:
+                for item in f.result():
+                    norm = item['title'].lower()[:40]
+                    if norm not in seen_titles:
+                        seen_titles.add(norm)
+                        articles.append(item)
+            except Exception:
+                pass
+
+    return articles[:10]
+
 @app.route('/api/analyze/<int:id>', methods=['POST'])
 def analyze_stock(id):
     api_key = get_api_key()
@@ -617,18 +701,18 @@ def analyze_stock(id):
         
     stock = Stock.query.get_or_404(id)
     
-    # 1. Fetch recent news & financials
+    # 1. Multi-source news aggregation & Financial ratios
+    articles = fetch_multi_source_news(stock.symbol, stock.name)
     news_summary = ""
+    for a in articles:
+        news_summary += f"- [{a['publisher']}] {a['title']}\n"
+    
+    if not news_summary.strip():
+        news_summary = "Aucune actualité récente trouvée."
+
     financial_ratios = ""
     try:
         ticker = yf.Ticker(stock.symbol)
-        news = ticker.news or []
-        for n in news[:5]:
-            title = n.get('title')
-            pub = n.get('publisher', '')
-            if title:
-                news_summary += f"- {title} ({pub})\n"
-        
         info = ticker.info or {}
         pe = info.get('trailingPE')
         div = info.get('dividendYield')
@@ -639,12 +723,8 @@ def analyze_stock(id):
         financial_ratios += f"- Rendement dividende: {round(div*100, 2) if div else 'N/D'}%\n"
         financial_ratios += f"- Prix cible moyen analystes: {target if target else 'N/D'} {stock.currency}\n"
         financial_ratios += f"- Consensus analystes: {rec.upper() if rec else 'N/D'}\n"
-    except Exception as e:
-        news_summary = "Actualités non disponibles pour ce titre."
+    except Exception:
         financial_ratios = "Ratios non disponibles."
-
-    if not news_summary.strip():
-        news_summary = "Aucune actualité récente trouvée."
 
     # 2. Get current price context
     details = fetch_single_stock_details(stock.symbol, stock.purchase_price, stock.currency)
@@ -715,6 +795,7 @@ CONSIGNES DE RÉPONSE :
             'analysis': analysis_text,
             'recommendation': rec,
             'news': news_summary,
+            'news_items': articles,
             'model_used': model_used
         })
     except Exception as e:
@@ -736,15 +817,23 @@ def analyze_all_stocks():
 
     for stock in stocks:
         try:
-            # Quick fundamentals & news
+            # Multi-source news & fundamentals
+            articles = fetch_multi_source_news(stock.symbol, stock.name)
+            news_summary = ""
+            for a in articles[:4]:
+                news_summary += f"- [{a['publisher']}] {a['title']}\n"
+
             details = fetch_single_stock_details(stock.symbol, stock.purchase_price, stock.currency)
             current_price = details.get('current_price', stock.purchase_price)
             pl_percent = ((current_price - stock.purchase_price) / stock.purchase_price) * 100 if stock.purchase_price > 0 else 0.0
 
             prompt = f"""
 Tu es un gérant de portefeuille expert.
-Analyse brièvement l'actif {stock.name} ({stock.symbol}) :
+Analyse l'actif {stock.name} ({stock.symbol}) :
 PRU: {stock.purchase_price} {stock.currency} | Cours: {current_price} {stock.currency} | Plus-value: {pl_percent:+.1f}% | PER: {details.get('pe_ratio', 'N/D')} | Div: {details.get('dividend_yield', 'N/D')}%
+Actualités récentes multi-sources :
+{news_summary}
+
 Donne une recommandation concise.
 Termine obligatoirement par :
 RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
@@ -771,7 +860,7 @@ RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
             errors.append(f"{stock.symbol}: {e}")
 
     return jsonify({
-        'message': f"{updated_count} position(s) analysée(s) et mises à jour !",
+        'message': f"{updated_count} position(s) analysée(s) et actualisée(s) !",
         'updated_count': updated_count,
         'errors': errors
     }), 200
