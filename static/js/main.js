@@ -1405,6 +1405,66 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- MARKET WISDOM / PROVERBE BOURSIER DU JOUR ---
+    const quotes = [
+        { text: "« Les marchés haussiers naissent dans le pessimisme, grandissent dans le scepticisme, mûrissent dans l'optimisme et meurent dans l'euphorie. »", author: "Sir John Templeton" },
+        { text: "« Soyez craintifs quand les autres sont avides, et avides quand les autres sont craintifs. »", author: "Warren Buffett" },
+        { text: "« Le prix est ce que vous payez. La valeur est ce que vous obtenez. »", author: "Warren Buffett" },
+        { text: "« Si vous n'êtes pas prêt à détenir une action pendant 10 ans, ne songez même pas à la posséder pendant 10 minutes. »", author: "Warren Buffett" },
+        { text: "« À court terme, le marché est une machine à voter. À long terme, c'est une machine à peser. »", author: "Benjamin Graham" },
+        { text: "« Le grand argent n'est pas dans l'achat ou la vente, mais dans l'attente. »", author: "Charlie Munger" },
+        { text: "« Sachez ce que vous possédez, et sachez pourquoi vous le possédez. »", author: "Peter Lynch" },
+        { text: "« Les gens ont perdu beaucoup plus d'argent en essayant d'anticiper les corrections qu'au cours des corrections elles-mêmes. »", author: "Peter Lynch" },
+        { text: "« Les marchés peuvent rester irrationnels plus longtemps que vous ne pouvez rester solvable. »", author: "John Maynard Keynes" },
+        { text: "« Achetez des actions, prenez des somnifères pendant 20 ans, et quand vous vous réveillerez, vous serez riche. »", author: "André Kostolany" },
+        { text: "« L'économie et la bourse sont comme un homme qui promène son chien : l'homme avance tranquillement, le chien court devant et derrière, mais tous deux finissent au même endroit. »", author: "André Kostolany" },
+        { text: "« Les quatre mots les plus dangereux dans l'investissement sont : 'Cette fois, c'est différent'. »", author: "Sir John Templeton" },
+        { text: "« Ne cherchez pas l'aiguille dans la botte de foin. Achetez simplement la botte de foin ! »", author: "John Bogle (Fondateur de Vanguard)" },
+        { text: "« Ce qui compte n'est pas d'avoir raison ou tort, mais combien vous gagnez quand vous avez raison et combien vous perdez quand vous avez tort. »", author: "George Soros" },
+        { text: "« Acheter au son du canon, vendre au son du clairon. »", author: "Adage Boursier Ancien" },
+        { text: "« Les arbres ne montent pas jusqu'au ciel. »", author: "Proverbe Boursier" },
+        { text: "« La tendance est votre amie jusqu'au retournement final. »", author: "Maxime de Trader" },
+        { text: "« Coupez rapidement vos pertes et laissez courir vos gains. »", author: "David Ricardo" },
+        { text: "« Le temps passé sur le marché bat toujours le timing de marché. »", author: "Sagesse Financière" },
+        { text: "« Vous ne pouvez pas faire les mêmes choses que tout le monde et espérer de meilleurs résultats. »", author: "Howard Marks" },
+        { text: "« Le risque provient de ne pas savoir ce que vous faites. »", author: "Warren Buffett" }
+    ];
+
+    const quoteTextEl = document.getElementById('quote-text');
+    const quoteAuthorEl = document.getElementById('quote-author');
+    const nextQuoteBtn = document.getElementById('next-quote-btn');
+
+    let currentQuoteIdx = -1;
+
+    const displayQuote = (index) => {
+        if (!quoteTextEl || !quoteAuthorEl) return;
+        currentQuoteIdx = index % quotes.length;
+        const q = quotes[currentQuoteIdx];
+
+        quoteTextEl.style.opacity = 0;
+        quoteAuthorEl.style.opacity = 0;
+        quoteTextEl.style.transform = 'translateY(4px)';
+
+        setTimeout(() => {
+            quoteTextEl.textContent = q.text;
+            quoteAuthorEl.textContent = `— ${q.author}`;
+            quoteTextEl.style.opacity = 1;
+            quoteAuthorEl.style.opacity = 1;
+            quoteTextEl.style.transform = 'translateY(0)';
+        }, 200);
+    };
+
+    // Initial quote based on day of year
+    const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
+    displayQuote(dayOfYear % quotes.length);
+
+    if (nextQuoteBtn) {
+        nextQuoteBtn.addEventListener('click', () => {
+            const nextIdx = (currentQuoteIdx + 1 + Math.floor(Math.random() * (quotes.length - 1))) % quotes.length;
+            displayQuote(nextIdx);
+        });
+    }
+
     // --- INITIAL LOAD ---
     loadStocks();
 });
