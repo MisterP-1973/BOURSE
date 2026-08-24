@@ -461,13 +461,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LOAD & RENDER STOCKS ---
     const loadStocks = async () => {
         stocksLoading.style.display = 'flex';
-        stocksContainer.innerHTML = '';
         const currentRef = refCurrencySelect.value || 'CHF';
 
         try {
             const res = await fetch(`/api/stocks?ref_currency=${currentRef}`);
             portfolioData = await res.json();
-            stocksLoading.style.display = 'none';
             
             // Populate news symbol filter
             if (newsSymbolFilter) {
@@ -487,7 +485,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAllocationDonut();
         } catch (err) {
             console.error("Error loading stocks", err);
-            stocksLoading.innerHTML = '<p style="color:var(--danger)">Erreur lors de la récupération des données.</p>';
+            showToast("Erreur lors de la récupération des cotations.", "error");
+        } finally {
+            stocksLoading.style.display = 'none';
         }
     };
 
