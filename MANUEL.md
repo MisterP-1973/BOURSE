@@ -1,199 +1,101 @@
 # 📖 Manuel Utilisateur — AI Stock Analyzer
 
-Bienvenue dans **AI Stock Analyzer**, votre outil de suivi de portefeuille boursier avec analyse intelligente.
+Bienvenue dans **AI Stock Analyzer**, votre plateforme complète de suivi de portefeuille boursier, d'analyse financière et de conseil stratégique propulsée par l'intelligence artificielle Google Gemini.
 
 ---
 
 ## 🚀 Démarrage rapide
 
-1. Lancez l'application : `python app.py`
+1. Lancez l'application dans votre terminal :
+   ```powershell
+   .\venv\Scripts\activate
+   python app.py
+   ```
 2. Ouvrez votre navigateur sur **http://localhost:3000**
-3. Si c'est votre première utilisation, configurez votre clé API Gemini (voir section [Configuration IA](#configuration-ia))
-4. Ajoutez votre première position via le formulaire en haut de page
+3. Configurez votre clé API Gemini via l'icône ⚙️ si ce n'est pas déjà fait.
+4. Ajoutez vos positions ou importez un fichier CSV/JSON pour commencer le suivi.
 
 ---
 
-## 📋 Sections de l'interface
+## 📋 Présentation des Fonctionnalités & de l'Interface
 
-### 1. Barre de navigation
+### 1. Barre de navigation & Paramètres globaux
 
 | Élément | Description |
 |---|---|
-| 📈 Logo | Nom de l'application |
-| ⚙️ Paramètres | Ouvre la fenêtre de configuration de la clé API Gemini |
+| 📈 **Logo & Titre** | Identité de l'application et statut en direct |
+| 💱 **Sélecteur de Devise** | Choisissez votre devise de référence (**CHF, EUR, USD, GBP**). Tous les totaux, plus-values et dividendes sont automatiquement convertis en temps réel. |
+| 🔄 **Bouton Rafraîchir** | Force la mise à jour des cours et des taux de change. |
+| 🪄 **Audit Global IA** | Déclenche un audit stratégique de l'ensemble de votre portefeuille par Gemini. |
+| 📁 **Import / Export** | Téléchargez vos positions en **CSV** / **JSON** ou importez un fichier de sauvegarde. |
+| ⚙️ **Paramètres** | Configuration de la clé API Google Gemini et de la devise de référence par défaut. |
 
 ---
 
-### 2. Formulaire d'ajout d'une position
+### 2. Tableau de Bord & Indicateurs Clés (KPIs)
 
-Situé en haut de la page principale.
+En haut de page, 4 cartes synthétisent la santé de vos investissements convertis dans votre devise de référence :
 
-#### Champs disponibles
-
-| Champ | Description | Exemple |
-|---|---|---|
-| **Rechercher** | Tapez un nom ou ticker pour trouver automatiquement l'instrument | `Apple`, `AAPL`, `Lyxor` |
-| **Code (Ticker)** | Rempli automatiquement par la recherche, ou manuellement | `AAPL`, `VWCE.DE` |
-| **Nom** | Nom de la société ou du fonds | `Apple Inc.` |
-| **Quantité** | Nombre de titres détenus (décimales acceptées) | `10`, `0.5` |
-| **Prix d'achat (PRU)** | Prix unitaire moyen d'achat | `150.00` |
-| **Devise** | USD, EUR, CHF ou GBP | `EUR` |
-| **Date d'achat** | Optionnel — date d'acquisition | `2024-03-15` |
-
-#### 💡 Astuce : La recherche intelligente
-
-La barre de recherche interroge Yahoo Finance en temps réel :
-- Tapez au moins **2 caractères** pour déclencher la recherche
-- Un menu déroulant affiche les résultats avec le **type** de l'instrument :
-  - 🟢 **Action** — action ordinaire
-  - 🔵 **ETF** — fonds négocié en bourse
-  - 🟣 **Fonds** — fonds commun de placement
-  - 🟡 **Indice** — indice boursier
-- Cliquez sur un résultat pour remplir automatiquement le ticker et le nom
-- Naviguez avec les flèches ↑↓ et sélectionnez avec Entrée
+1. **Valorisation Totale** : Valeur actuelle globale du portefeuille + montant total investi.
+2. **Plus/Moins-Value Latente** : Gain ou perte net en montant et en pourcentage (vert si positif, rouge si négatif).
+3. **Variation du Jour** : Performance journalière (Day Gain) réalisée sur la dernière séance de bourse.
+4. **Dividendes Annuels Estimés** : Estimation des revenus passifs annuels réels générés par vos positions.
 
 ---
 
-### 3. Vue Portefeuille
+### 3. Répartition & Allocation d'Actifs (Donut Chart)
 
-Affiche toutes vos positions sous forme de **cartes**.
-
-#### Basculer entre les vues
-
-- **🔲 Vue Grille** (défaut) : cartes côte à côte
-- **☰ Vue Liste** : cartes empilées verticalement
-
-Votre préférence est mémorisée automatiquement.
-
-#### Lecture d'une carte
-
-```
-┌────────────────────────────────────────┐
-│  [AAPL]          180.50 USD           │
-│  Apple Inc.      [CONSERVER]           │
-├────────────────────────────────────────┤
-│  QTE     : 10                          │
-│  PRU     : 175.00 USD                  │
-│  VALEUR  : 1 805.00 USD                │
-│  PLUS-VALUE : +55.00 (+3.14%)         │
-├────────────────────────────────────────┤
-│ [✨ Analyser avec l'IA] [✏️] [🗑️]      │
-└────────────────────────────────────────┘
-```
-
-| Zone | Description |
-|---|---|
-| **Ticker** | Code boursier de l'instrument |
-| **Prix actuel** | Dernier cours connu (temps réel ou différé) |
-| **Badge IA** | Recommandation de l'IA : ACHETER / CONSERVER / VENDRE |
-| **QTE** | Quantité détenue |
-| **PRU** | Prix de revient unitaire (prix d'achat moyen) |
-| **VALEUR** | Valeur de marché actuelle (QTE × cours actuel) |
-| **PLUS-VALUE** | Gain/perte en valeur et en pourcentage |
-
-#### Badge ⚠️ PRU
-
-Apparaît quand le cours temps réel **n'est pas disponible** sur Yahoo Finance (fonds non cotés, instruments non reconnus). La valeur affichée correspond au prix d'achat.
+Cliquez sur le bandeau **"Répartition & Allocation d'Actifs"** pour dérouler le graphique interactif :
+- **Graphique en Donut (Chart.js)** : Visualisation du poids de chaque actif dans votre portefeuille.
+- **Légende détaillée** : Pourcentage exact et répartition visuelle par couleur.
 
 ---
 
-### 4. Modifier une position ✏️
+### 4. Formulaire d'Ajout d'une Position
 
-Cliquez sur le bouton **✏️** (stylo) sur une carte pour modifier les informations sans supprimer la position.
+Ajoutez une action, un ETF, un fonds ou une crypto en quelques secondes :
 
-**Champs modifiables :**
-- Code (ticker), Nom, Quantité, PRU, Devise, Date d'achat
-
-> ⚠️ Si vous modifiez le **symbole**, la recommandation IA précédente est réinitialisée car elle n'est plus valide pour le nouveau titre.
-
----
-
-### 5. Analyse IA 🤖
-
-Cliquez sur **✨ Analyser avec l'IA** pour obtenir une analyse personnalisée.
-
-#### Ce que fait l'IA
-
-1. Récupère les **5 dernières actualités** du titre via Yahoo Finance
-2. Calcule la **performance latente** (plus-value actuelle)
-3. Soumet tout cela à **Google Gemini** pour analyse
-4. Retourne une analyse en français avec une recommandation finale :
-   - **ACHETER DAVANTAGE** — le potentiel semble intéressant
-   - **CONSERVER** — position à maintenir
-   - **VENDRE** — risque identifié ou objectif atteint
-
-#### Prérequis
-
-Une **clé API Google Gemini** est nécessaire (gratuite). Voir [Configuration IA](#configuration-ia).
+* **Recherche dynamique** : Tapez 2 lettres (ex: *Apple, AAPL, LVMH, MC.PA, VWCE*) pour autocompléter le ticker, le nom et le type d'actif.
+* **Code Ticker** : Symbole boursier Yahoo Finance.
+* **Type d'actif** : Action (*Equity*), ETF (*Tracker*), Fonds (*Fund*), Crypto, Indice.
+* **Quantité** & **PRU** : Quantité détenue et Prix de Revient Unitaire d'achat.
+* **Devise** : Devise de cotation native du titre (USD, EUR, CHF, GBP, CAD...).
 
 ---
 
-### 6. Supprimer une position 🗑️
+### 5. Suivi des Positions & Outils d'Analyse
 
-Cliquez sur le bouton **rouge 🗑️** sur la carte. Une confirmation est demandée avant suppression.
+#### Outils de filtrage et de tri :
+* **Filtres rapides** : Affichez *Tous*, uniquement les *Actions*, les *ETFs* ou les *Fonds*.
+* **Recherche instantanée** : Filtrez en temps réel dans vos positions détenues.
+* **Tri personnalisé** : Par *Plus forte valeur*, *Plus-value (%)*, *Performance du jour*, *Ordre alphabétique*.
+* **Vues Grille & Liste** : Basculez entre vue cartes et vue tableau.
 
----
-
-## ⚙️ Configuration IA
-
-### Obtenir une clé API Gemini gratuite
-
-1. Allez sur [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-2. Connectez-vous avec votre compte Google
-3. Cliquez sur **"Create API Key"**
-4. Copiez la clé générée (commence par `AIza...`)
-
-### Saisir la clé dans l'application
-
-1. Cliquez sur l'icône ⚙️ en haut à droite
-2. Collez votre clé dans le champ **"Clé API Google Gemini"**
-3. Cliquez sur **"Enregistrer la clé"**
-
-La clé est stockée dans `config.json` localement sur votre machine et n'est **jamais transmise** ailleurs qu'à Google.
+#### Sur chaque position :
+* 📉 **Sparkline 7 jours** : Mini-graphique de tendance intégré sur la carte.
+* 📈 **Graphique Historique Interactif** : Cliquez sur l'icône de graphique pour afficher l'évolution du cours sur **1 Mois, 6 Mois, 1 An et 5 Ans**.
+* 🤖 **Analyse IA Gemini** : Analyse des actualités récentes, ratios financiers (P/E, rendement dividende, consensus analystes) et recommandation (**ACHETER / CONSERVER / VENDRE**).
+* ✏️ **Édition inline** : Modifiez quantité, PRU, date ou devise sans supprimer la ligne.
+* 🗑️ **Suppression sécurisée** : Modale moderne de confirmation.
 
 ---
 
-## 🔧 Résolution des problèmes
+## 🤖 Audit Global du Portefeuille par l'IA
 
-### Le cours d'un titre affiche ⚠️ PRU
-
-Le symbole n'est pas reconnu par Yahoo Finance. Solutions :
-- Utilisez la **recherche intelligente** pour trouver le bon code ticker Yahoo
-- Certains fonds gérés (OPCVM, fonds de pension) ne sont pas disponibles sur Yahoo Finance
-
-### L'analyse IA retourne une erreur
-
-| Message | Solution |
-|---|---|
-| `API Key not configured` | Configurez votre clé Gemini dans les paramètres ⚙️ |
-| `Erreur avec l'API IA` | Vérifiez que votre clé est valide et que vous avez accès à internet |
-| `Erreur réseau` | Redémarrez le serveur Flask |
-
-### Le portefeuille met longtemps à charger
-
-Normal si vous avez des titres non reconnus — yfinance tente plusieurs méthodes avant de déclarer le cours indisponible. Corriger les symboles via l'édition ✏️ accélèrera le chargement.
+En cliquant sur **"Audit Global IA"**, Gemini 3.x analyse l'ensemble de votre allocation pour vous délivrer un rapport complet :
+1. 📊 **Score de diversification (0 à 100)** et santé générale.
+2. ⚖️ **Analyse de l'allocation et concentration** (secteurs, zones géographiques, doublons).
+3. 🛡️ **Niveau de risque et résilience** en cas de baisse des marchés.
+4. 💡 **3 à 5 Recommandations concrètes de rééquilibrage**.
 
 ---
 
-## 📊 Formats de symboles par place boursière
+## 💾 Sauvegarde & Export
 
-| Place | Suffixe | Exemple |
-|---|---|---|
-| NYSE / NASDAQ (USA) | *(aucun)* | `AAPL`, `MSFT` |
-| Euronext Paris | `.PA` | `AIR.PA` (Airbus) |
-| XETRA (Allemagne) | `.DE` | `VWCE.DE` |
-| SIX (Suisse) | `.SW` | `NESN.SW` (Nestlé) |
-| London Stock Exchange | `.L` | `SHEL.L` (Shell) |
-| Euronext Amsterdam | `.AS` | `ASML.AS` |
+* **Export CSV** : Fichier tableur compatible Excel, Google Sheets, LibreOffice.
+* **Export JSON** : Sauvegarde brute complète de votre base.
+* **Import** : Glissez-déposez ou sélectionnez un fichier CSV/JSON pour restaurer ou ajouter des positions en masse.
 
 ---
 
-## 📝 Notes importantes
-
-- Les cours sont **différés** d'environ 15 minutes selon les places
-- La valorisation totale est affichée en CHF à titre indicatif (conversion non effectuée)
-- La base de données (`instance/stocks.db`) est locale — **aucune donnée n'est transmise** à des serveurs tiers (sauf Google pour l'IA et Yahoo Finance pour les cours)
-
----
-
-*Manuel rédigé pour AI Stock Analyzer v1.0 — Août 2026*
+*AI Stock Analyzer v2.0 — Août 2026*

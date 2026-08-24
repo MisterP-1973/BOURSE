@@ -14,13 +14,16 @@
 
 | Fonctionnalité | Description |
 |---|---|
-| 📊 **Portefeuille en temps réel** | Cours boursiers live via Yahoo Finance (actions, ETF, fonds) |
-| 🔍 **Recherche intelligente** | Autocomplète par nom ou ticker — trouve actions, ETF, fonds |
-| ✏️ **Édition inline** | Modifiez quantité, PRU, devise sans supprimer la position |
-| 🤖 **Analyse IA (Gemini)** | Analyse des actualités + recommandation : ACHETER / CONSERVER / VENDRE |
-| 📱 **Vue grille / liste** | Deux modes d'affichage, mémorisés dans le navigateur |
-| ⚠️ **Détection fonds illiquides** | Badge visuel quand le prix temps réel n'est pas disponible |
-| 💾 **Persistance SQLite** | Base de données locale, aucun cloud requis |
+| 💱 **Moteur Multi-Devises Réel (Forex)** | Conversion instantanée des positions en devise de référence (CHF, EUR, USD, GBP) via taux de change en direct |
+| ⚡ **Performance & Cache Parallélisé** | Chargement instantané (< 1s) grâce aux threads parallèles et à la mise en cache mémoire (5 min) |
+| 📈 **Graphiques Interactifs & Sparklines** | Mini-courbes de tendance 7j sur chaque actif et graphique historique interactif (1M, 6M, 1A, 5A) avec Chart.js |
+| 🍩 **Allocation d'Actifs (Donut Chart)** | Visualisation de la répartition du portefeuille par symbole et classe d'actifs |
+| 🤖 **Audit Global IA du Portefeuille** | Diagnostic complet Gemini : score de diversification (0-100), analyse des risques, détection des doublons et rééquilibrage |
+| 🎯 **Analyse IA par Titre Fiabilisée** | Recommandation structurée (ACHETER / CONSERVER / VENDRE) intégrant ratios financiers (PER, dividendes) et actualités |
+| 💰 **Revenus & Dividendes Annuels** | Calcul automatique du cash flow annuel estimé en dividendes |
+| 🔍 **Recherche, Filtres & Tris Rapides** | Filtre instantané par texte, type d'actif (Action, ETF, Fonds) et tri (Valeur, Plus-value %, Perf du jour) |
+| 💾 **Import / Export CSV & JSON** | Sauvegarde locale complète et importation rapide de vos positions |
+| 📱 **Vue Grille & Tableau Liste** | Deux modes d'affichage modernes glassmorphism avec mémorisation de vos préférences |
 
 ---
 
@@ -109,9 +112,10 @@ BOURSE/
 |---|---|
 | Backend | Python / Flask 3.0 |
 | Base de données | SQLite via Flask-SQLAlchemy |
-| Données boursières | yfinance 1.5+ |
+| Données boursières & Forex | yfinance 1.5+ |
 | IA | Google Gemini API (google-genai) |
 | Frontend | HTML5 / Vanilla JS / Vanilla CSS |
+| Visualisation & Graphiques | Chart.js 4.x (CDN) |
 | Rendu Markdown | marked.js (CDN) |
 | Icônes | Font Awesome 6 (CDN) |
 
