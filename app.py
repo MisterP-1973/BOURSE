@@ -30,6 +30,7 @@ class Stock(db.Model):
     ai_recommendation = db.Column(db.String(50), nullable=True)
     asset_type = db.Column(db.String(50), nullable=True, default='Equity')
     notes = db.Column(db.Text, nullable=True)
+    manual_price = db.Column(db.Float, nullable=True)
     
     def to_dict(self):
         return {
@@ -42,7 +43,8 @@ class Stock(db.Model):
             'currency': self.currency,
             'ai_recommendation': self.ai_recommendation,
             'asset_type': self.asset_type or 'Equity',
-            'notes': self.notes or ''
+            'notes': self.notes or '',
+            'manual_price': self.manual_price
         }
 
 class AnalysisHistory(db.Model):
@@ -60,7 +62,7 @@ class AnalysisHistory(db.Model):
             'id': self.id,
             'stock_id': self.stock_id,
             'symbol': self.symbol,
-            'timestamp': self.timestamp.strftime('%Y-%m-%d %H:%M:%S') if self.timestamp else '',
+            'timestamp': self.timestamp.strftime('%Y-%m-%d %H:%M') if self.timestamp else '',
             'analysis_type': self.analysis_type,
             'recommendation': self.recommendation,
             'analysis_text': self.analysis_text,
@@ -81,6 +83,9 @@ def migrate_db():
                     conn.commit()
                 if 'notes' not in columns:
                     conn.execute(text("ALTER TABLE stock ADD COLUMN notes TEXT"))
+                    conn.commit()
+                if 'manual_price' not in columns:
+                    conn.execute(text("ALTER TABLE stock ADD COLUMN manual_price FLOAT"))
                     conn.commit()
         except Exception as e:
             print(f"Migration note: {e}")
@@ -393,8 +398,18 @@ def get_stocks():
         stock_data = s.to_dict()
         details = detailed_map.get(s.id, {})
         
-        current_price = details.get('current_price', s.purchase_price)
-        price_unavailable = details.get('price_unavailable', False)
+        is_manual_price = False
+        if details.get('price_unavailable', False):
+            if s.manual_price is not None and s.manual_price > 0:
+                current_price = s.manual_price
+                price_unavailable = False
+                is_manual_price = True
+            else:
+                current_price = s.purchase_price
+                price_unavailable = True
+        else:
+            current_price = details.get('current_price', s.purchase_price)
+            price_unavailable = False
         
         # Native currency metrics
         total_invested_native = s.quantity * s.purchase_price
@@ -471,7 +486,8 @@ def get_stocks():
             'target_mean_price': details.get('target_mean_price'),
             'num_analysts': details.get('num_analysts'),
             'effective_recommendation': effective_rec,
-            'recommendation_source': rec_source
+            'recommendation_source': rec_source,
+            'is_manual_price': is_manual_price
         })
         results.append(stock_data)
 
@@ -507,7 +523,8 @@ def add_stock():
             purchase_price=float(data['purchase_price']),
             currency=data.get('currency', 'USD').upper(),
             asset_type=data.get('asset_type', 'Equity'),
-            notes=data.get('notes', '')
+            notes=data.get('notes', ''),
+            manual_price=float(data['manual_price']) if data.get('manual_price') else None
         )
         db.session.add(new_stock)
         db.session.commit()
@@ -544,9 +561,27 @@ def update_stock(id):
             stock.asset_type = data.get('asset_type')
         if 'notes' in data:
             stock.notes = data.get('notes')
+        if 'manual_price' in data:
+            mp = data.get('manual_price')
+            stock.manual_price = float(mp) if (mp is not None and str(mp).strip() != '') else None
 
         db.session.commit()
+        MARKET_CACHE.pop(f"stock_{stock.symbol}", None)
         return jsonify(stock.to_dict()), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/stocks/<int:id>/price', methods=['PUT'])
+def update_stock_manual_price(id):
+    """Quick update of last known price for instruments without automated feed."""
+    stock = Stock.query.get_or_404(id)
+    data = request.json or {}
+    price = data.get('manual_price') or data.get('price')
+    try:
+        stock.manual_price = float(price) if price is not None and float(price) > 0 else None
+        db.session.commit()
+        MARKET_CACHE.pop(f"stock_{stock.symbol}", None)
+        return jsonify({'message': 'Cours mis à jour', 'stock': stock.to_dict()}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 

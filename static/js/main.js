@@ -695,6 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="card-price-block">
                         <div class="price-main">${formatMoney(stock.current_price, stock.currency)}</div>
                         ${convertedValSub}
+                        ${stock.is_manual_price ? `<div style="margin-top:2px;"><span class="badge-manual-tag" onclick="openEditModal(${stock.id})" style="cursor:pointer; font-size:0.68rem; background:rgba(234,179,8,0.2); color:#facc15; border:1px solid rgba(234,179,8,0.4); padding:0.1rem 0.45rem; border-radius:4px; font-weight:600;" title="Cours saisi manuellement (cliquez pour modifier)"><i class="fa-solid fa-pen"></i> Manuel</span></div>` : ''}
                     </div>
                 </div>
 
@@ -975,12 +976,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-purchase-price').value = stock.purchase_price;
         document.getElementById('edit-currency').value = stock.currency;
         document.getElementById('edit-purchase-date').value = (stock.purchase_date && stock.purchase_date !== 'Inconnue') ? stock.purchase_date : '';
+        document.getElementById('edit-manual-price').value = stock.manual_price ? stock.manual_price : (stock.is_manual_price ? stock.current_price : '');
         editModal.classList.add('active');
     };
 
     editStockForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = document.getElementById('edit-id').value;
+        const manualPriceVal = document.getElementById('edit-manual-price').value;
         const payload = {
             symbol: document.getElementById('edit-symbol').value,
             name: document.getElementById('edit-name').value,
@@ -988,7 +991,8 @@ document.addEventListener('DOMContentLoaded', () => {
             quantity: document.getElementById('edit-quantity').value,
             purchase_price: document.getElementById('edit-purchase-price').value,
             currency: document.getElementById('edit-currency').value,
-            purchase_date: document.getElementById('edit-purchase-date').value || 'Inconnue'
+            purchase_date: document.getElementById('edit-purchase-date').value || 'Inconnue',
+            manual_price: manualPriceVal ? parseFloat(manualPriceVal) : null
         };
 
         try {
