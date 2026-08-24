@@ -119,13 +119,16 @@ document.addEventListener('DOMContentLoaded', () => {
             viewListBtn.classList.remove('active');
         }
         localStorage.setItem('portfolioView', viewType);
-        if (portfolioData && portfolioData.stocks) {
-            renderStocks();
-        }
     };
     applyView(currentView);
-    viewGridBtn.addEventListener('click', () => applyView('grid'));
-    viewListBtn.addEventListener('click', () => applyView('list'));
+    viewGridBtn.addEventListener('click', () => {
+        applyView('grid');
+        if (portfolioData && portfolioData.stocks) renderStocks();
+    });
+    viewListBtn.addEventListener('click', () => {
+        applyView('list');
+        if (portfolioData && portfolioData.stocks) renderStocks();
+    });
 
     // --- ALLOCATION ACCORDION TOGGLE ---
     allocationToggleBtn.addEventListener('click', () => {
