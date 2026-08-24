@@ -137,9 +137,9 @@ h1, h2, h3, h4 {
 }
 
 .nav-content {
-    max-width: 1300px;
+    max-width: 1600px;
     margin: 0 auto;
-    padding: 0 1.5rem;
+    padding: 0 1.75rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -253,12 +253,12 @@ h1, h2, h3, h4 {
 
 /* Main Container */
 .container {
-    max-width: 1300px;
+    max-width: 1600px;
     margin: 1.5rem auto 4rem;
-    padding: 0 1.5rem;
+    padding: 0 1.75rem;
     display: flex;
     flex-direction: column;
-    gap: 1.75rem;
+    gap: 2rem;
 }
 
 /* KPI Summary Cards Grid */
@@ -666,22 +666,23 @@ input:focus, select:focus {
 .stocks-list {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1.1rem;
     width: 100%;
 }
 
 .stocks-list .stock-card {
     width: 100%;
     border-radius: var(--border-radius-md);
+    transition: var(--transition);
 }
 
 @media (min-width: 960px) {
     .stocks-list .stock-card {
         display: grid;
-        grid-template-columns: 2.2fr 1.2fr 1.6fr 1.2fr 3fr auto;
+        grid-template-columns: 2fr 1.2fr 1.5fr 1.1fr 3.2fr auto;
         align-items: center;
-        padding: 1rem 1.75rem;
-        gap: 2rem;
+        padding: 1.15rem 2.2rem;
+        gap: 2.75rem;
     }
 
     .stocks-list .stock-card .card-top {
@@ -705,35 +706,35 @@ input:focus, select:focus {
         background: transparent;
         border: none;
         padding: 0;
-        gap: 1.25rem;
+        gap: 1.5rem;
         justify-content: flex-start;
     }
 
     .stocks-list .stock-card .sparkline-container {
-        max-width: 95px;
-        height: 30px;
+        max-width: 110px;
+        height: 32px;
     }
 
     .stocks-list .stock-card .card-metrics-grid {
         border-top: none;
         padding-top: 0;
-        gap: 1.5rem;
+        gap: 2.5rem;
         display: flex;
-        justify-content: space-between;
+        justify-content: space-around;
     }
 
     .stocks-list .stock-card .card-bottom-bar {
         border-top: none;
         padding-top: 0;
-        gap: 0.5rem;
+        gap: 0.6rem;
         justify-content: flex-end;
         margin-left: auto;
-        padding-left: 0.5rem;
+        padding-left: 1rem;
     }
 
     .stocks-list .stock-card .card-actions-group {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.6rem;
         margin-left: auto;
     }
 
