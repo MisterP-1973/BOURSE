@@ -688,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `
                 <div class="card-top">
-                    <div style="min-width:0; flex:1;">
+                    <div class="card-top-left">
                         <div class="symbol-type-row">
                             <span class="symbol-badge">${stock.symbol}</span>
                             ${typeBadge}
