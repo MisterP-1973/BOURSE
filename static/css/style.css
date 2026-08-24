@@ -784,6 +784,17 @@ input:focus, select:focus {
     font-family: var(--font-mono);
 }
 
+.metric-box-sub {
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.metric-box-sub.positive { color: var(--success); }
+.metric-box-sub.negative { color: var(--danger); }
+
 .card-bottom-bar {
     display: flex;
     align-items: center;

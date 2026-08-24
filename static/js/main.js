@@ -703,14 +703,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="metric-box">
                         <span class="metric-box-label">QTE / PRU</span>
                         <span class="metric-box-val">${stock.quantity} × ${stock.purchase_price.toFixed(2)}</span>
+                        <span class="metric-box-sub">${stock.currency}</span>
                     </div>
                     <div class="metric-box">
-                        <span class="metric-box-label">VALEUR</span>
-                        <span class="metric-box-val">${formatMoney(stock.current_value, stock.currency)}</span>
+                        <span class="metric-box-label">VALEUR (${portfolioData.ref_currency})</span>
+                        <span class="metric-box-val">${formatMoney(stock.current_value_ref || stock.current_value, portfolioData.ref_currency)}</span>
+                        ${isDifferentCurr ? `<span class="metric-box-sub" title="Valeur en devise native">${formatMoney(stock.current_value, stock.currency)}</span>` : ''}
                     </div>
                     <div class="metric-box">
-                        <span class="metric-box-label">PLUS-VALUE</span>
-                        <span class="metric-box-val ${plClass}">${plSign}${stock.pl_percent.toFixed(2)}%</span>
+                        <span class="metric-box-label">GAIN/PERTE (${portfolioData.ref_currency})</span>
+                        <span class="metric-box-val ${plClass}">${plSign}${formatMoney(stock.pl_value_ref !== undefined ? stock.pl_value_ref : stock.pl_value, portfolioData.ref_currency)}</span>
+                        <span class="metric-box-sub ${plClass}">${plSign}${stock.pl_percent.toFixed(2)}% ${isDifferentCurr ? `(${plSign}${formatMoney(stock.pl_value, stock.currency)})` : ''}</span>
                     </div>
                 </div>
 
