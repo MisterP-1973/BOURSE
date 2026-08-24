@@ -905,20 +905,33 @@ def analyze_portfolio():
         summary_text += f"- **{item['symbol']}** ({item['name']}) | Type: {item['type']} | Poids: {weight:.1f}% | Perf: {item['pl_pct']:+.1f}% | Avis IA: {item['ai_rec']}\n"
 
     prompt = f"""
-Tu es un chef stratégiste en investissement et gestion de patrimoine.
-Effectue un AUDIT COMPLET ET GLOBAL du portefeuille suivant :
+Tu es un chef stratégiste en investissement et gestionnaire de patrimoine senior de renommée mondiale.
+Effectue un AUDIT STRATÉGIQUE COMPLET ET DÉTAILLÉ du portefeuille suivant en distinguant clairement l'horizon COURT TERME et l'horizon LONG TERME :
 
 VALEUR TOTALE ESTIMÉE : {total_val_ref:,.2f} {ref_currency}
 NOMBRE DE LIGNES : {len(portfolio_lines)}
 
-DÉTAIL DES ACTIFS :
+DÉTAIL DES POSITIONS ACTUELLES :
 {summary_text}
 
-CONSIGNES DE RÉDACTION (en français, format Markdown riche) :
-1. 📊 **Score de Diversification & Santé globale** : Attribue une note globale de 0 à 100 avec explication.
-2. ⚖️ **Analyse de l'Allocation & Concentration** : Analyse les risques de surpondération, dépendances sectorielles ou géographiques, doublons éventuels (ex: ETFs qui se chevauchent).
-3. 🛡️ **Niveau de Risque & Résilience** : Quel est le profil de risque (Prudent, Équilibré, Dynamique, Spéculatif) et comportement prévisible en cas de correction de marché.
-4. 💡 **3 à 5 Recommandations concrètes de Rééquilibrage** : Actions d'achat, d'arbitrage ou de prise de bénéfices pour optimiser le ratio rendement/risque.
+STRUCTURE EXIGÉE DU RAPPORT (en français, format Markdown riche et professionnel avec émojis et sous-titres) :
+
+1. 📊 **Diagnostic & Score de Santé Globale (0 à 100)**
+   - Score chiffré de diversification et robustesse globale.
+   - Synthèse de la structure actuelle (forces, faiblesses majeures, concentration).
+
+2. ⚡ **Perspective & Stratégie Court Terme (1 à 6 mois — Tactique & Risques)**
+   - **Risques immédiats & Volatilité** : Analyse des lignes les plus exposées aux corrections à court terme.
+   - **Prises de bénéfices tactiques** : Lignes où un allègement ou une sécurisation de plus-value est opportune.
+   - **Opportunités tactiques** : Entrées potentielles ou renforcements à court terme.
+
+3. 🏛️ **Vision Stratégique Long Terme (3 à 5+ ans — Patrimoine & Rendement)**
+   - **Solidité des Fondamentaux & Mégatendances** : Capacité des entreprises détenues à croître durablement (qualité des bilans, barrières à l'entrée).
+   - **Rendement & Effet Boule de Neige des Dividendes** : Pérennité et croissance des flux de trésorerie passifs.
+   - **Résilience Structurelle** : Exposition aux cycles macroéconomiques mondiaux, devises et inflation.
+
+4. 🎯 **Plan d'Action & Arbitrages Recommandés**
+   - 3 à 5 recommandations prioritaires claires et chiffrées pour optimiser le ratio rendement / risque.
 """
 
     try:
