@@ -530,9 +530,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const dayClass = isDayPos ? 'positive' : 'negative';
             const daySign = isDayPos ? '+' : '';
 
-            const recHtml = stock.ai_recommendation ? 
-                `<span class="badge badge-${stock.ai_recommendation.toLowerCase()}"><i class="fa-solid fa-sparkles"></i> ${stock.ai_recommendation}</span>` : 
-                `<span class="badge badge-none" title="Cliquez sur l'IA pour obtenir un conseil">Non analysé</span>`;
+            // Dynamic recommendation badge with origin indicator
+            const effectiveRec = stock.effective_recommendation || stock.ai_recommendation || 'CONSERVER';
+            const recClass = `badge-${effectiveRec.toLowerCase()}`;
+            let recIcon = 'fa-sparkles';
+            let recTitle = 'Recommandation analysée par Gemini IA';
+            let recLabel = effectiveRec;
+            
+            if (stock.recommendation_source === 'consensus') {
+                recIcon = 'fa-chart-line';
+                recTitle = `Consensus direct des analystes Wall Street (${stock.num_analysts || 15} analystes)`;
+            } else if (stock.recommendation_source === 'trend') {
+                recIcon = 'fa-arrow-trend-up';
+                recTitle = 'Tendance technique de cours';
+            }
+
+            const recHtml = `<span class="badge ${recClass}" title="${recTitle}"><i class="fa-solid ${recIcon}"></i> ${recLabel}</span>`;
 
             const cleanType = stock.asset_type || 'Equity';
             const typeBadge = `<span class="badge-type badge-type-${cleanType.toLowerCase()}">${cleanType}</span>`;
@@ -1111,7 +1124,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isPos = s.pl_value >= 0;
                 const plClass = isPos ? 'positive' : 'negative';
                 const plSign = isPos ? '+' : '';
-                const recClass = s.ai_recommendation ? `badge-${s.ai_recommendation.toLowerCase()}` : 'badge-none';
+                const rec = s.effective_recommendation || s.ai_recommendation || 'CONSERVER';
+                const recClass = `badge-${rec.toLowerCase()}`;
 
                 rowsHtml += `
                     <tr>
@@ -1124,7 +1138,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td class="num">${formatMoney(s.current_value_ref || s.current_value, refCurr)}</td>
                         <td class="num ${plClass}">${plSign}${s.pl_percent.toFixed(2)}% (${plSign}${s.pl_value.toFixed(2)})</td>
                         <td class="num">${s.dividend_yield ? s.dividend_yield.toFixed(1) + '%' : (s.pe_ratio ? 'PER: ' + s.pe_ratio.toFixed(1) : '—')}</td>
-                        <td style="text-align:center;"><span class="badge ${recClass}">${s.ai_recommendation || 'N/D'}</span></td>
+                        <td style="text-align:center;"><span class="badge ${recClass}">${rec}</span></td>
                     </tr>
                 `;
             });
@@ -1142,7 +1156,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <th style="text-align:right;">Valeur (${refCurr})</th>
                             <th style="text-align:right;">Plus-Value</th>
                             <th style="text-align:right;">Rendement</th>
-                            <th style="text-align:center;">Avis IA</th>
+                            <th style="text-align:center;">Avis Titre</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1156,6 +1170,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 `État des ${summary.holdings_count || 0} positions détenues`,
                 kpisHtml + tableHtml
             );
+        });
+    }
+
+    // Batch AI Analyze Button
+    const batchAiBtn = document.getElementById('batch-ai-analyze-btn');
+    if (batchAiBtn) {
+        batchAiBtn.addEventListener('click', async () => {
+            batchAiBtn.disabled = true;
+            batchAiBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyse en cours...';
+            showToast('Lancement de l\'analyse IA sur tous vos titres...', 'info');
+
+            try {
+                const res = await fetch('/api/analyze-all', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message || 'Tous les titres ont été analysés !', 'success');
+                    loadStocks();
+                } else {
+                    showToast(data.error || 'Erreur lors de l\'analyse globale', 'error');
+                }
+            } catch (err) {
+                showToast('Erreur réseau lors de l\'analyse.', 'error');
+            } finally {
+                batchAiBtn.disabled = false;
+                batchAiBtn.innerHTML = '<i class="fa-solid fa-bolt gradient-text"></i> Actualiser avis IA';
+            }
         });
     }
 

@@ -272,6 +272,21 @@ def fetch_single_stock_details(symbol, fallback_price, fallback_currency='USD'):
 
                 data['fifty_two_week_high'] = info.get('fiftyTwoWeekHigh')
                 data['fifty_two_week_low'] = info.get('fiftyTwoWeekLow')
+                
+                # Analyst Consensus
+                rec_key = str(info.get('recommendationKey') or '').lower().strip()
+                if rec_key in ['strong_buy', 'strongbuy', 'buy']:
+                    data['analyst_consensus'] = 'ACHETER'
+                elif rec_key in ['sell', 'strong_sell', 'underperform']:
+                    data['analyst_consensus'] = 'VENDRE'
+                elif rec_key in ['hold', 'neutral']:
+                    data['analyst_consensus'] = 'CONSERVER'
+                else:
+                    data['analyst_consensus'] = None
+                
+                data['target_mean_price'] = info.get('targetMeanPrice')
+                data['num_analysts'] = info.get('numberOfAnalystOpinions')
+
                 if not data['currency'] or data['currency'] == fallback_currency:
                     data['currency'] = info.get('currency', fallback_currency).upper()
                 data['quote_type'] = info.get('quoteType', 'Equity')
@@ -403,6 +418,23 @@ def get_stocks():
         total_day_gain_ref += day_change_converted
         total_annual_dividends_ref += annual_div_converted
 
+        # Recommendation determination (AI > Live Wall Street Consensus > Trend)
+        consensus = details.get('analyst_consensus')
+        if s.ai_recommendation:
+            effective_rec = s.ai_recommendation
+            rec_source = 'ai'
+        elif consensus:
+            effective_rec = consensus
+            rec_source = 'consensus'
+        else:
+            if not price_unavailable and pl_percent > 15:
+                effective_rec = 'ACHETER'
+            elif not price_unavailable and pl_percent < -20:
+                effective_rec = 'VENDRE'
+            else:
+                effective_rec = 'CONSERVER'
+            rec_source = 'trend'
+
         stock_data.update({
             'current_price': current_price,
             'price_unavailable': price_unavailable,
@@ -423,7 +455,12 @@ def get_stocks():
             'annual_dividend_ref': annual_div_converted,
             'fifty_two_week_high': details.get('fifty_two_week_high'),
             'fifty_two_week_low': details.get('fifty_two_week_low'),
-            'quote_type': details.get('quote_type', s.asset_type or 'Equity')
+            'quote_type': details.get('quote_type', s.asset_type or 'Equity'),
+            'analyst_consensus': consensus,
+            'target_mean_price': details.get('target_mean_price'),
+            'num_analysts': details.get('num_analysts'),
+            'effective_recommendation': effective_rec,
+            'recommendation_source': rec_source
         })
         results.append(stock_data)
 
@@ -682,6 +719,62 @@ CONSIGNES DE RÉPONSE :
         })
     except Exception as e:
         return jsonify({'error': f"Erreur Gemini IA: {str(e)}"}), 500
+
+@app.route('/api/analyze-all', methods=['POST'])
+def analyze_all_stocks():
+    """Batch analyze all portfolio positions with Gemini."""
+    api_key = get_api_key()
+    if not api_key:
+        return jsonify({'error': 'Clé API Gemini non configurée.'}), 400
+
+    stocks = Stock.query.all()
+    if not stocks:
+        return jsonify({'error': 'Aucune position à analyser.'}), 400
+
+    updated_count = 0
+    errors = []
+
+    for stock in stocks:
+        try:
+            # Quick fundamentals & news
+            details = fetch_single_stock_details(stock.symbol, stock.purchase_price, stock.currency)
+            current_price = details.get('current_price', stock.purchase_price)
+            pl_percent = ((current_price - stock.purchase_price) / stock.purchase_price) * 100 if stock.purchase_price > 0 else 0.0
+
+            prompt = f"""
+Tu es un gérant de portefeuille expert.
+Analyse brièvement l'actif {stock.name} ({stock.symbol}) :
+PRU: {stock.purchase_price} {stock.currency} | Cours: {current_price} {stock.currency} | Plus-value: {pl_percent:+.1f}% | PER: {details.get('pe_ratio', 'N/D')} | Div: {details.get('dividend_yield', 'N/D')}%
+Donne une recommandation concise.
+Termine obligatoirement par :
+RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
+"""
+            analysis_text, model_used = call_gemini_with_fallback(api_key, prompt)
+            rec = "CONSERVER"
+            if "RECOMMANDATION FINALE : ACHETER" in analysis_text or "RECOMMANDATION : ACHETER" in analysis_text:
+                rec = "ACHETER"
+            elif "RECOMMANDATION FINALE : VENDRE" in analysis_text or "RECOMMANDATION : VENDRE" in analysis_text:
+                rec = "VENDRE"
+            elif "RECOMMANDATION FINALE : CONSERVER" in analysis_text or "RECOMMANDATION : CONSERVER" in analysis_text:
+                rec = "CONSERVER"
+            else:
+                t_upper = analysis_text.upper()
+                if "ACHETER" in t_upper and "VENDRE" not in t_upper:
+                    rec = "ACHETER"
+                elif "VENDRE" in t_upper and "ACHETER" not in t_upper:
+                    rec = "VENDRE"
+
+            stock.ai_recommendation = rec
+            db.session.commit()
+            updated_count += 1
+        except Exception as e:
+            errors.append(f"{stock.symbol}: {e}")
+
+    return jsonify({
+        'message': f"{updated_count} position(s) analysée(s) et mises à jour !",
+        'updated_count': updated_count,
+        'errors': errors
+    }), 200
 
 @app.route('/api/analyze-portfolio', methods=['POST'])
 def analyze_portfolio():
