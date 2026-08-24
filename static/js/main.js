@@ -675,7 +675,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const tbody = document.getElementById('stocks-table-body');
 
             filtered.forEach(stock => {
-                const isPositive = stock.pl_value >= 0;
+                const effectivePlVal = stock.pl_value_ref !== undefined ? stock.pl_value_ref : stock.pl_value;
+                const isPositive = (effectivePlVal || 0) >= 0;
                 const plClass = isPositive ? 'positive' : 'negative';
                 const plSign = isPositive ? '+' : '';
 
@@ -800,7 +801,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         filtered.forEach(stock => {
-            const isPositive = stock.pl_value >= 0;
+            const effectivePlVal = stock.pl_value_ref !== undefined ? stock.pl_value_ref : stock.pl_value;
+            const isPositive = (effectivePlVal || 0) >= 0;
             const plClass = isPositive ? 'positive' : 'negative';
             const plSign = isPositive ? '+' : '';
 

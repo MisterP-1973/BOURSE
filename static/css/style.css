@@ -127,6 +127,14 @@ h4 {
     text-decoration: underline;
 }
 
+.positive {
+    color: var(--success) !important;
+}
+
+.negative {
+    color: var(--danger) !important;
+}
+
 /* Glassmorphism Panels */
 .glass-panel {
     background: var(--surface-color);
