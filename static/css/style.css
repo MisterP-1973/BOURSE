@@ -676,88 +676,75 @@ input:focus, select:focus {
     transition: var(--transition);
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1000px) {
     .stocks-list .stock-card {
-        display: flex;
-        flex-direction: row;
+        display: grid;
+        grid-template-columns: minmax(190px, 1.8fr) minmax(280px, 2fr) minmax(300px, 2.5fr) minmax(160px, auto);
         align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        padding: 0.9rem 1.75rem;
-        gap: 1.5rem 2rem;
+        padding: 0.95rem 1.75rem;
+        gap: 1.5rem;
+        width: 100%;
+        overflow: hidden;
     }
 
     .stocks-list .stock-card .card-top {
-        flex: 1 1 240px;
-        min-width: 210px;
-        max-width: 340px;
-        margin: 0;
-        align-items: flex-start;
-        justify-content: flex-start;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        min-width: 0;
+        gap: 0.75rem;
     }
 
     .stocks-list .stock-card .card-top-left {
-        width: 100%;
         min-width: 0;
+        flex: 1 1 auto;
     }
 
     .stocks-list .stock-card .card-price-block {
         flex: 0 0 auto;
-        min-width: 105px;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        text-align: left;
+        text-align: right;
+        min-width: 0;
     }
 
     .stocks-list .stock-card .card-middle {
-        flex: 0 0 auto;
-        min-width: 320px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
         background: transparent;
         border: none;
         padding: 0;
-        gap: 0.85rem;
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        flex-wrap: nowrap;
+        min-width: 0;
     }
 
     .stocks-list .stock-card .sparkline-container {
-        width: 90px;
+        width: 85px;
         height: 28px;
         flex-shrink: 0;
     }
 
     .stocks-list .stock-card .card-metrics-grid {
-        flex: 1 1 300px;
-        min-width: 290px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
         border-top: none;
         padding-top: 0;
-        gap: 1.5rem;
-        display: flex;
-        justify-content: space-around;
-        align-items: center;
-    }
-
-    .stocks-list .stock-card .metric-box {
-        min-width: 80px;
-        flex-shrink: 0;
+        min-width: 0;
     }
 
     .stocks-list .stock-card .card-bottom-bar {
-        flex: 0 0 auto;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
         border-top: none;
         padding-top: 0;
-        gap: 0.5rem;
-        justify-content: flex-end;
-        margin-left: auto;
+        min-width: 0;
     }
 
     .stocks-list .stock-card .card-actions-group {
         display: flex;
         gap: 0.45rem;
-        flex-wrap: nowrap;
+        flex-shrink: 0;
     }
 
     .stocks-list .stock-card .card-bottom-bar > div:first-child {
