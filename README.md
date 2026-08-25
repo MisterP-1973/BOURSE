@@ -67,6 +67,13 @@ pip install -r requirements.txt
 
 ### 4. Lancer l'application
 
+**Sous Windows (rapide) :**
+Double-cliquez sur `start.bat` ou exécutez dans le terminal :
+```cmd
+start.bat
+```
+
+**Ou manuellement :**
 ```bash
 python app.py
 ```
@@ -94,6 +101,7 @@ La clé est stockée localement dans `config.json` (non versionné).
 BOURSE/
 ├── app.py                  # Application Flask (routes, modèles, logique)
 ├── requirements.txt        # Dépendances Python
+├── start.bat               # Script de lancement rapide Windows
 ├── .gitignore
 ├── README.md
 ├── MANUEL.md               # Manuel utilisateur détaillé
