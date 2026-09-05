@@ -469,11 +469,30 @@ POPULAR_CRYPTOS = [
     {'symbol': 'USDC-USD', 'name': 'USD Coin', 'short': 'USDC', 'type': 'Crypto'}
 ]
 
+# --- POPULAR STRUCTURED PRODUCTS & CERTIFICATES ---
+POPULAR_STRUCTURED_PRODUCTS = [
+    {
+        'symbol': 'CH0037787659',
+        'ticker_six': 'TNGCI',
+        'name': 'UBS Bloomberg CMCI Natural Gas USD ETC (TNGCI)',
+        'type': 'Structured',
+        'exchange': 'SIX Swiss Exchange (Structured Products)',
+        'currency': 'USD',
+        'isin': 'CH0037787659',
+        'valor': '3778765'
+    }
+]
+
 def normalize_crypto_symbol(symbol, asset_type='Equity', currency='USD'):
     """Normalize crypto symbols: e.g. BTC with Crypto asset_type becomes BTC-USD."""
     if not symbol:
         return symbol
     sym = symbol.strip().upper()
+    # If it is a 12-char ISIN code or non-crypto asset, never append -USD
+    if len(sym) == 12 and sym[:2].isalpha() and sym[2:].isalnum():
+        return sym
+    if asset_type in ['Structured', 'Produit Structuré', 'Fund', 'ETF', 'Equity']:
+        return sym
     if asset_type == 'Crypto' or any(c['short'] == sym or c['symbol'] == sym for c in POPULAR_CRYPTOS):
         if '-' not in sym and '=' not in sym and '.' not in sym:
             curr = (currency or 'USD').upper()
@@ -643,7 +662,7 @@ def index():
 
 @app.route('/api/search', methods=['GET'])
 def search_ticker():
-    """Search for stocks, ETFs, funds, and cryptos by ticker symbol, name, or ISIN code."""
+    """Search for stocks, ETFs, funds, structured products, and cryptos by ticker symbol, name, or ISIN code."""
     query = request.args.get('q', '').strip()
     if not query or len(query) < 1:
         return jsonify([])
@@ -651,9 +670,26 @@ def search_ticker():
     is_isin = bool(len(query) == 12 and query[:2].isalpha() and query[2:].isalnum())
     results = []
     seen_symbols = set()
-
-    # 1. Instant popular crypto lookup
     q_lower = query.lower()
+
+    # 1. Instant popular structured products lookup (e.g. CH0037787659 / TNGCI / Natural Gas)
+    for sp in POPULAR_STRUCTURED_PRODUCTS:
+        if (q_lower in sp['symbol'].lower() or
+            q_lower in sp.get('isin', '').lower() or
+            q_lower in sp.get('ticker_six', '').lower() or
+            q_lower in sp.get('valor', '').lower() or
+            q_lower in sp['name'].lower()):
+            results.append({
+                'symbol': sp['symbol'],
+                'name': sp['name'],
+                'type': 'Structured',
+                'exchange': sp['exchange'],
+                'is_isin': True,
+                'isin': sp.get('isin')
+            })
+            seen_symbols.add(sp['symbol'])
+
+    # 2. Instant popular crypto lookup
     for c in POPULAR_CRYPTOS:
         if (q_lower in c['short'].lower() or 
             q_lower in c['name'].lower() or 
@@ -668,10 +704,10 @@ def search_ticker():
                 'isin': None
             })
             seen_symbols.add(c['symbol'])
-            if len(results) >= 5:
+            if len(results) >= 6:
                 break
 
-    # 2. Query Yahoo Finance Search
+    # 3. Query Yahoo Finance Search
     if len(query) >= 2:
         try:
             search = yf.Search(query, max_results=8)
@@ -693,6 +729,8 @@ def search_ticker():
                     type_disp = 'Fund'
                 elif raw_type_str in ['INDEX']:
                     type_disp = 'Index'
+                elif raw_type_str in ['STRUCTURED', 'CERTIFICATE', 'WARRANT']:
+                    type_disp = 'Structured'
                 else:
                     type_disp = 'Equity'
                     
@@ -709,6 +747,17 @@ def search_ticker():
                 seen_symbols.add(symbol)
         except Exception as e:
             print(f"Search error: {e}")
+
+    # 4. If query is a valid 12-character ISIN and wasn't found elsewhere, offer instant custom structured product card
+    if is_isin and query.upper() not in seen_symbols:
+        results.append({
+            'symbol': query.upper(),
+            'name': f"Produit Structuré / ISIN {query.upper()}",
+            'type': 'Structured',
+            'exchange': 'SIX Swiss Exchange / OTC',
+            'is_isin': True,
+            'isin': query.upper()
+        })
 
     return jsonify(results[:10])
 

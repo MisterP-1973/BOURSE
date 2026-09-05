@@ -678,6 +678,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const typeMapping = {
         'EQUITY': 'Equity',
         'ETF': 'ETF',
+        'STRUCTURED': 'Structured',
+        'PRODUIT STRUCTURÉ': 'Structured',
+        'CERTIFICATE': 'Structured',
+        'WARRANT': 'Structured',
         'MUTUALFUND': 'Fund',
         'FUND': 'Fund',
         'CRYPTOCURRENCY': 'Crypto',
@@ -700,7 +704,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     searchDropdown.innerHTML = `
                         <div class="search-no-result" style="padding:1rem; text-align:center;">
                             <div style="margin-bottom:0.6rem; color:var(--text-secondary); font-size:0.85rem;">Aucun actif direct trouvé</div>
-                            <div style="display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
+                            <div style="display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap; margin-bottom:0.75rem;">
                                 <a href="https://www.swissquote.ch/trading/search?query=${encodeURIComponent(q)}" target="_blank" class="btn btn-sm btn-secondary" style="font-size:0.78rem; text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;" onclick="event.stopPropagation();">
                                     🇨🇭 Swissquote.ch <i class="fa-solid fa-arrow-up-right-from-square"></i>
                                 </a>
@@ -708,8 +712,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                     🪙 CoinMarketCap <i class="fa-solid fa-arrow-up-right-from-square"></i>
                                 </a>
                             </div>
+                            <button type="button" class="btn btn-sm btn-gradient w-100" id="custom-fill-btn" style="font-size:0.8rem;">
+                                <i class="fa-solid fa-cube"></i> Ajouter "${q}" comme Produit Structuré
+                            </button>
                         </div>
                     `;
+                    const customFillBtn = document.getElementById('custom-fill-btn');
+                    if (customFillBtn) {
+                        customFillBtn.addEventListener('click', () => {
+                            symbolInput.value = q.toUpperCase();
+                            nameInput.value = `Produit Structuré ${q.toUpperCase()}`;
+                            searchQuery.value = q.toUpperCase();
+                            assetTypeSelect.value = 'Structured';
+                            closeDropdown();
+                            document.getElementById('quantity').focus();
+                        });
+                    }
                     searchDropdown.classList.remove('hidden');
                     return;
                 }
@@ -718,9 +736,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const item = document.createElement('div');
                     item.className = 'search-item';
                     const rawType = (r.type || 'Equity').toUpperCase();
-                    const cleanType = typeMapping[rawType] || (rawType === 'CRYPTO' ? 'Crypto' : 'Equity');
+                    const cleanType = typeMapping[rawType] || (rawType === 'CRYPTO' ? 'Crypto' : (rawType === 'STRUCTURED' ? 'Structured' : 'Equity'));
                     const isinBadge = r.isin ? `<span class="badge-type" style="background:rgba(139,92,246,0.25); color:#c084fc; border:1px solid rgba(139,92,246,0.4);">ISIN: ${r.isin}</span>` : '';
-                    const cryptoIcon = cleanType === 'Crypto' ? '<i class="fa-brands fa-bitcoin"></i> ' : '';
+                    let typeIcon = '';
+                    if (cleanType === 'Crypto') typeIcon = '<i class="fa-brands fa-bitcoin"></i> ';
+                    else if (cleanType === 'Structured') typeIcon = '<i class="fa-solid fa-cube"></i> ';
+
+                    const typeDisplayLabel = cleanType === 'Structured' ? 'Produit Structuré' : cleanType;
 
                     item.innerHTML = `
                         <div class="search-item-main">
@@ -729,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="search-item-meta">
                             ${isinBadge}
-                            <span class="badge-type badge-type-${cleanType.toLowerCase()}">${cryptoIcon}${cleanType}</span>
+                            <span class="badge-type badge-type-${cleanType.toLowerCase()}">${typeIcon}${typeDisplayLabel}</span>
                             <span class="search-exchange">${r.exchange || ''}</span>
                         </div>
                     `;
@@ -739,8 +761,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         searchQuery.value = `${r.symbol} — ${r.name}`;
                         assetTypeSelect.value = cleanType;
                         
-                        // Auto-detect currency from crypto pair (e.g. BTC-USD -> USD, BTC-EUR -> EUR)
-                        if (cleanType === 'Crypto' && r.symbol.includes('-')) {
+                        // Auto-detect currency
+                        if (r.currency) {
+                            const currSelect = document.getElementById('currency');
+                            if ([...currSelect.options].some(o => o.value === r.currency)) {
+                                currSelect.value = r.currency;
+                            }
+                        } else if (cleanType === 'Crypto' && r.symbol.includes('-')) {
                             const pairCurr = r.symbol.split('-').pop().toUpperCase();
                             const currSelect = document.getElementById('currency');
                             if ([...currSelect.options].some(o => o.value === pairCurr)) {
