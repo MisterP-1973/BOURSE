@@ -848,6 +848,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderKPIs(portfolioData.summary, portfolioData.ref_currency);
             renderStocks();
             renderAllocationDonut();
+            loadPortfolioSignals();
         } catch (err) {
             console.error("Error loading stocks", err);
             showToast("Erreur lors de la récupération des cotations.", "error");
@@ -1454,8 +1455,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     const rsiColor = t.rsi_color || 'blue';
                     const trendColor = t.trend_color || 'blue';
                     const macdColor = t.macd_color || 'blue';
+                    const dca = t.dca_zones || {};
+                    const dt = data.details || {};
+
+                    let earningsNoticeHtml = '';
+                    if (dt.days_to_earnings !== null && dt.days_to_earnings !== undefined) {
+                        earningsNoticeHtml = `
+                            <div style="background:rgba(59,130,246,0.12); border-left:3px solid #3b82f6; padding:0.6rem 0.9rem; border-radius:0 6px 6px 0; margin-bottom:0.85rem; font-size:0.8rem; color:#cbd5e1; display:flex; align-items:center; gap:0.5rem;">
+                                <i class="fa-solid fa-calendar-day" style="color:#60a5fa;"></i>
+                                <span><strong>Publication des Résultats (Earnings) :</strong> Dans <strong>${dt.days_to_earnings} jour(s)</strong> (${dt.earnings_date}). Surveillez la volatilité.</span>
+                            </div>
+                        `;
+                    }
 
                     aiTechDashboard.innerHTML = `
+                        ${earningsNoticeHtml}
                         <div class="tech-cards-grid">
                             <div class="tech-kpi-card">
                                 <div class="tech-kpi-label"><i class="fa-solid fa-gauge-high"></i> RSI 14j</div>
@@ -1478,6 +1492,31 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <span style="color:#10b981;">S: ${t.support}</span> / <span style="color:#f43f5e;">R: ${t.resistance}</span>
                                 </div>
                                 <div style="font-size:0.7rem; color:var(--text-secondary);">ATR 14: ${t.atr} (${t.atr_pct}%)</div>
+                            </div>
+                        </div>
+
+                        <!-- Smart DCA Accumulation Plan -->
+                        <div class="dca-zones-card">
+                            <h4>
+                                <span><i class="fa-solid fa-layer-group"></i> Plan d'Accumulation DCA & Zones d'Entrée Suggérées</span>
+                                <span class="dca-timing-badge badge-${dca.timing_color || 'blue'}">${dca.timing_status || 'Consolidation'}</span>
+                            </h4>
+                            <div class="dca-tiers-grid">
+                                <div class="dca-tier-box t1">
+                                    <span class="dca-tier-label">Tranche 1 (Pullback léger)</span>
+                                    <div class="dca-tier-price">${dca.zone1}</div>
+                                    <div class="dca-tier-pct">${dca.zone1_pct}%</div>
+                                </div>
+                                <div class="dca-tier-box t2">
+                                    <span class="dca-tier-label">Tranche 2 (Entrée Optimale)</span>
+                                    <div class="dca-tier-price">${dca.zone2}</div>
+                                    <div class="dca-tier-pct">${dca.zone2_pct}%</div>
+                                </div>
+                                <div class="dca-tier-box t3">
+                                    <span class="dca-tier-label">Tranche 3 (Value Dip / SMA200)</span>
+                                    <div class="dca-tier-price">${dca.zone3}</div>
+                                    <div class="dca-tier-pct">${dca.zone3_pct}%</div>
+                                </div>
                             </div>
                         </div>
 
@@ -2116,6 +2155,269 @@ document.addEventListener('DOMContentLoaded', () => {
         nextQuoteBtn.addEventListener('click', () => {
             const nextIdx = (currentQuoteIdx + 1 + Math.floor(Math.random() * (quotes.length - 1))) % quotes.length;
             displayQuote(nextIdx);
+        });
+    }
+
+    // --- LIVE SIGNALS SCANNER LOGIC ---
+    const signalsSection = document.getElementById('signals-section');
+    const signalsHeaderToggle = document.getElementById('signals-header-toggle');
+    const signalsContent = document.getElementById('signals-content');
+    const signalsChevron = document.getElementById('signals-chevron');
+    const signalsTotalCount = document.getElementById('signals-total-count');
+    const signalsGrid = document.getElementById('signals-grid');
+    const chipRiskCount = document.getElementById('chip-risk-count');
+    const chipOppCount = document.getElementById('chip-opp-count');
+    const chipEarnCount = document.getElementById('chip-earn-count');
+    let isSignalsOpen = false;
+
+    const toggleSignalsSection = (open = null) => {
+        isSignalsOpen = (open !== null) ? open : !isSignalsOpen;
+        if (isSignalsOpen) {
+            signalsContent.style.display = 'block';
+            signalsChevron.style.transform = 'rotate(180deg)';
+        } else {
+            signalsContent.style.display = 'none';
+            signalsChevron.style.transform = 'rotate(0deg)';
+        }
+    };
+
+    if (signalsHeaderToggle) {
+        signalsHeaderToggle.addEventListener('click', () => toggleSignalsSection());
+    }
+
+    const loadPortfolioSignals = async () => {
+        if (!signalsSection) return;
+        try {
+            const res = await fetch('/api/signals');
+            const data = await res.json();
+            
+            if (data.total_count > 0) {
+                signalsSection.style.display = 'block';
+                signalsTotalCount.textContent = `${data.total_count} signal${data.total_count > 1 ? 's' : ''}`;
+
+                // Update summary chips
+                const summ = data.summary || {};
+                if (summ.risks > 0) {
+                    chipRiskCount.style.display = 'inline-flex';
+                    chipRiskCount.querySelector('.num').textContent = summ.risks;
+                } else {
+                    chipRiskCount.style.display = 'none';
+                }
+
+                if (summ.opportunities > 0) {
+                    chipOppCount.style.display = 'inline-flex';
+                    chipOppCount.querySelector('.num').textContent = summ.opportunities;
+                } else {
+                    chipOppCount.style.display = 'none';
+                }
+
+                if (summ.earnings > 0) {
+                    chipEarnCount.style.display = 'inline-flex';
+                    chipEarnCount.querySelector('.num').textContent = summ.earnings;
+                } else {
+                    chipEarnCount.style.display = 'none';
+                }
+
+                // Render signal cards
+                signalsGrid.innerHTML = '';
+                (data.signals || []).forEach(sig => {
+                    const card = document.createElement('div');
+                    card.className = `signal-card severity-${sig.severity || 'info'}`;
+                    card.innerHTML = `
+                        <div class="signal-card-header">
+                            <span class="signal-category"><i class="fa-solid ${sig.icon || 'fa-bolt'}"></i> ${sig.category}</span>
+                            <span class="signal-symbol-badge">${sig.symbol}</span>
+                        </div>
+                        <div class="signal-card-title">${sig.title}</div>
+                        <div class="signal-card-msg">${sig.message}</div>
+                        <div class="signal-card-action"><i class="fa-solid fa-lightbulb"></i> Action : ${sig.action}</div>
+                    `;
+                    signalsGrid.appendChild(card);
+                });
+            } else {
+                signalsSection.style.display = 'none';
+            }
+        } catch (e) {
+            console.error('Error fetching signals:', e);
+        }
+    };
+
+    // --- STRESS TEST MODAL & SCENARIOS ---
+    const stressTestBtn = document.getElementById('stress-test-btn');
+    const stressTestModal = document.getElementById('stress-test-modal');
+    const runStressTestBtn = document.getElementById('run-stress-test-btn');
+    const stressTestLoading = document.getElementById('stress-test-loading');
+    const stressTestResults = document.getElementById('stress-test-results');
+    const stressTestContent = document.getElementById('stress-test-content');
+    const scenarioCards = document.querySelectorAll('.scenario-card');
+    let selectedScenario = 'all';
+
+    scenarioCards.forEach(card => {
+        card.addEventListener('click', () => {
+            scenarioCards.forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            selectedScenario = card.getAttribute('data-scenario');
+        });
+    });
+
+    if (stressTestBtn) {
+        stressTestBtn.addEventListener('click', () => {
+            stressTestModal.classList.add('active');
+        });
+    }
+
+    if (runStressTestBtn) {
+        runStressTestBtn.addEventListener('click', async () => {
+            runStressTestBtn.disabled = true;
+            stressTestLoading.style.display = 'block';
+            stressTestResults.style.display = 'none';
+            stressTestContent.innerHTML = '';
+
+            try {
+                const res = await fetch('/api/portfolio/stress-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scenario: selectedScenario })
+                });
+                const data = await res.json();
+                stressTestLoading.style.display = 'none';
+                stressTestResults.style.display = 'block';
+
+                if (res.ok) {
+                    stressTestContent.innerHTML = marked.parse(data.report || '');
+                } else {
+                    stressTestContent.innerHTML = `<p style="color:var(--danger);">${data.error || 'Erreur lors de la simulation.'}</p>`;
+                }
+            } catch (err) {
+                stressTestLoading.style.display = 'none';
+                stressTestResults.style.display = 'block';
+                stressTestContent.innerHTML = `<p style="color:var(--danger);">Erreur réseau lors de la simulation.</p>`;
+            } finally {
+                runStressTestBtn.disabled = false;
+            }
+        });
+    }
+
+    // --- CORRELATION & OVERLAP MODAL ---
+    const correlationBtn = document.getElementById('correlation-btn');
+    const correlationModal = document.getElementById('correlation-modal');
+    const correlationLoading = document.getElementById('correlation-loading');
+    const correlationContent = document.getElementById('correlation-content');
+    const sectorBarsContainer = document.getElementById('sector-bars-container');
+    const overlapsListContainer = document.getElementById('overlaps-list-container');
+    const hedgesListContainer = document.getElementById('hedges-list-container');
+    const matrixTableContainer = document.getElementById('matrix-table-container');
+
+    const loadCorrelationData = async () => {
+        correlationLoading.style.display = 'block';
+        correlationContent.style.display = 'none';
+
+        try {
+            const res = await fetch('/api/portfolio/correlation');
+            const data = await res.json();
+            correlationLoading.style.display = 'none';
+            correlationContent.style.display = 'block';
+
+            if (!data.available) {
+                correlationContent.innerHTML = `<p style="color:var(--text-secondary); text-align:center; padding:2rem 0;">${data.message || 'Données insuffisantes.'}</p>`;
+                return;
+            }
+
+            // 1. Sector breakdown
+            sectorBarsContainer.innerHTML = '';
+            const secEntries = Object.entries(data.sectors || {});
+            secEntries.sort((a, b) => b[1] - a[1]);
+            secEntries.forEach(([sec, pct]) => {
+                const row = document.createElement('div');
+                row.className = 'sector-bar-row';
+                row.innerHTML = `
+                    <span class="sector-name" title="${sec}">${sec}</span>
+                    <div class="sector-progress-track">
+                        <div class="sector-progress-fill" style="width: ${Math.min(100, pct)}%;"></div>
+                    </div>
+                    <span class="sector-pct">${pct}%</span>
+                `;
+                sectorBarsContainer.appendChild(row);
+            });
+
+            // 2. Overlaps
+            overlapsListContainer.innerHTML = '';
+            if (data.overlaps && data.overlaps.length) {
+                data.overlaps.forEach(ov => {
+                    const item = document.createElement('div');
+                    item.className = 'overlap-item';
+                    item.innerHTML = `
+                        <div>
+                            <strong>${ov.sym1} ↔ ${ov.sym2}</strong>
+                            <span style="font-size:0.75rem; color:var(--text-secondary); margin-left:8px;">${ov.warning}</span>
+                        </div>
+                        <span class="badge" style="background:rgba(239,68,68,0.25); color:#f87171; font-family:var(--font-mono); font-weight:700;">+${ov.correlation}</span>
+                    `;
+                    overlapsListContainer.appendChild(item);
+                });
+            } else {
+                overlapsListContainer.innerHTML = '<p style="color:var(--text-secondary); font-size:0.8rem; margin:0;">✅ Aucun doublon à forte corrélation (> 0.70) détecté. Votre diversification est saine.</p>';
+            }
+
+            // 3. Hedges
+            hedgesListContainer.innerHTML = '';
+            if (data.hedges && data.hedges.length) {
+                data.hedges.forEach(hd => {
+                    const item = document.createElement('div');
+                    item.className = 'hedge-item';
+                    item.innerHTML = `
+                        <div>
+                            <strong>${hd.sym1} ↔ ${hd.sym2}</strong>
+                            <span style="font-size:0.75rem; color:var(--text-secondary); margin-left:8px;">${hd.benefit}</span>
+                        </div>
+                        <span class="badge" style="background:rgba(16,185,129,0.25); color:#34d399; font-family:var(--font-mono); font-weight:700;">${hd.correlation}</span>
+                    `;
+                    hedgesListContainer.appendChild(item);
+                });
+            } else {
+                hedgesListContainer.innerHTML = '<p style="color:var(--text-secondary); font-size:0.8rem; margin:0;">ℹ️ Aucune corrélation négative forte observée (vous pouvez ajouter de l\'or, des devises refuges CHF ou des matières premières pour amortir les baisses).</p>';
+            }
+
+            // 4. Matrix Heatmap Table
+            matrixTableContainer.innerHTML = '';
+            const syms = data.symbols || [];
+            const matrix = data.matrix || {};
+            let tableHtml = '<table class="matrix-table"><thead><tr><th></th>';
+            syms.forEach(s => { tableHtml += `<th>${s}</th>`; });
+            tableHtml += '</tr></thead><tbody>';
+
+            syms.forEach(s1 => {
+                tableHtml += `<tr><th>${s1}</th>`;
+                syms.forEach(s2 => {
+                    const val = (matrix[s1] && matrix[s1][s2] !== undefined) ? matrix[s1][s2] : 0;
+                    let cellClass = 'matrix-cell-med';
+                    if (s1 === s2) {
+                        cellClass = 'matrix-cell-high';
+                    } else if (val >= 0.7) {
+                        cellClass = 'matrix-cell-high';
+                    } else if (val <= -0.1) {
+                        cellClass = 'matrix-cell-neg';
+                    } else if (val < 0.3) {
+                        cellClass = 'matrix-cell-low';
+                    }
+                    tableHtml += `<td class="${cellClass}">${val.toFixed(2)}</td>`;
+                });
+                tableHtml += '</tr>';
+            });
+            tableHtml += '</tbody></table>';
+            matrixTableContainer.innerHTML = tableHtml;
+
+        } catch (e) {
+            correlationLoading.style.display = 'none';
+            correlationContent.style.display = 'block';
+            correlationContent.innerHTML = `<p style="color:var(--danger); text-align:center;">Erreur lors du calcul de la matrice.</p>`;
+        }
+    };
+
+    if (correlationBtn) {
+        correlationBtn.addEventListener('click', () => {
+            correlationModal.classList.add('active');
+            loadCorrelationData();
         });
     }
 

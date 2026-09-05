@@ -54,6 +54,17 @@
                     <i class="fa-solid fa-newspaper"></i>
                 </button>
 
+                <!-- Correlation & Overlap Button -->
+                <button id="correlation-btn" class="icon-btn" title="Matrice de Corrélation & Détection d'Overlap">
+                    <i class="fa-solid fa-network-wired"></i>
+                </button>
+
+                <!-- Stress-Test Macro Button -->
+                <button id="stress-test-btn" class="btn btn-stress-test" title="Stress-Test Macroéconomique & Simulation de Crise">
+                    <i class="fa-solid fa-tornado"></i>
+                    <span>Stress-Test</span>
+                </button>
+
                 <!-- Refresh Button -->
                 <button id="refresh-btn" class="icon-btn" title="Rafraîchir les cours">
                     <i class="fa-solid fa-arrows-rotate"></i>
@@ -140,6 +151,30 @@
                         <span class="kpi-value" id="kpi-dividends">0.00</span>
                     </div>
                     <span class="kpi-subtext" id="kpi-holdings-count">0 positions actives</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- LIVE SIGNALS & ALERTS SCANNER -->
+        <section class="signals-section glass-panel" id="signals-section" style="display:none;">
+            <div class="signals-header" id="signals-header-toggle">
+                <div class="signals-title-group">
+                    <div class="signals-pulse-dot"></div>
+                    <h3><i class="fa-solid fa-bolt-lightning text-amber"></i> Scanner de Signaux & Alertes en Direct</h3>
+                    <span class="signals-total-badge" id="signals-total-count">0 signal</span>
+                </div>
+                <div class="signals-summary-chips" id="signals-summary-chips">
+                    <span class="chip-signal chip-risk" id="chip-risk-count" style="display:none;"><i class="fa-solid fa-triangle-exclamation"></i> <span class="num">0</span> Risques</span>
+                    <span class="chip-signal chip-opp" id="chip-opp-count" style="display:none;"><i class="fa-solid fa-arrow-trend-up"></i> <span class="num">0</span> Opportunités</span>
+                    <span class="chip-signal chip-earn" id="chip-earn-count" style="display:none;"><i class="fa-solid fa-calendar-day"></i> <span class="num">0</span> Résultats</span>
+                </div>
+                <button type="button" class="btn-toggle-signals" id="btn-toggle-signals" title="Afficher/Masquer les signaux">
+                    <i class="fa-solid fa-chevron-down" id="signals-chevron"></i>
+                </button>
+            </div>
+            <div class="signals-content-collapse" id="signals-content" style="display:none;">
+                <div class="signals-grid" id="signals-grid">
+                    <!-- Populated via main.js -->
                 </div>
             </div>
         </section>
@@ -655,6 +690,114 @@
                                     <i class="fa-solid fa-cloud-arrow-up"></i> Lancer l'importation
                                 </button>
                             </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: Stress-Test Macroéconomique -->
+        <div id="stress-test-modal" class="modal">
+            <div class="modal-content glass-panel" style="max-width: 860px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-tornado gradient-text"></i> Stress-Test Macro & Simulation de Crise</h2>
+                    <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <p class="settings-desc">Simulez la résistance et l'impact chiffré de chocs macroéconomiques majeurs sur votre portefeuille actuel grâce au modèle IA Gemini institutionnel.</p>
+                    
+                    <div class="scenario-selector-grid" id="scenario-selector-grid">
+                        <button type="button" class="scenario-card active" data-scenario="all">
+                            <div class="sc-icon"><i class="fa-solid fa-layer-group"></i></div>
+                            <div class="sc-info">
+                                <strong>Matrice Complète (4 Chocs)</strong>
+                                <span>Taux + Récession + Énergie + Dollar</span>
+                            </div>
+                        </button>
+                        <button type="button" class="scenario-card" data-scenario="inflation_rates">
+                            <div class="sc-icon text-amber"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                            <div class="sc-info">
+                                <strong>Choc Taux & Inflation</strong>
+                                <span>+150 bps banques centrales</span>
+                            </div>
+                        </button>
+                        <button type="button" class="scenario-card" data-scenario="recession_crash">
+                            <div class="sc-icon text-rose"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                            <div class="sc-info">
+                                <strong>Récession & Krach Boursier</strong>
+                                <span>Baisse de -20% des grands indices</span>
+                            </div>
+                        </button>
+                        <button type="button" class="scenario-card" data-scenario="energy_shock">
+                            <div class="sc-icon text-indigo"><i class="fa-solid fa-gas-pump"></i></div>
+                            <div class="sc-info">
+                                <strong>Choc Énergie & Matières 1ères</strong>
+                                <span>+40% sur le pétrole et le gaz</span>
+                            </div>
+                        </button>
+                        <button type="button" class="scenario-card" data-scenario="usd_drop">
+                            <div class="sc-icon text-emerald"><i class="fa-solid fa-money-bill-transfer"></i></div>
+                            <div class="sc-info">
+                                <strong>Dépréciation du Dollar (USD)</strong>
+                                <span>-10% USD vs Franc Suisse / Euro</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="stress-test-actions" style="margin: 1.25rem 0;">
+                        <button type="button" id="run-stress-test-btn" class="btn btn-gradient btn-lg w-100">
+                            <i class="fa-solid fa-play"></i> Lancer la Simulation Quantitative
+                        </button>
+                    </div>
+
+                    <div id="stress-test-loading" class="stress-test-loading" style="display: none; text-align: center; padding: 2rem;">
+                        <div class="loading-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> Simulation des scénarios de choc en cours via Gemini...</div>
+                    </div>
+
+                    <div id="stress-test-results" class="stress-test-results" style="display: none;">
+                        <div class="stress-test-content markdown-body" id="stress-test-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: Matrice de Corrélation & Overlap -->
+        <div id="correlation-modal" class="modal">
+            <div class="modal-content glass-panel" style="max-width: 860px;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-network-wired gradient-text"></i> Matrice de Corrélation & Risques d'Overlap</h2>
+                    <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <p class="settings-desc">Analyse mathématique des corrélations de Pearson (historique 6 mois). Détecte les doublons sectoriels à haut risque (&gt; 0.70) et les actifs protecteurs décorrélés.</p>
+
+                    <div id="correlation-loading" class="loading-spinner" style="text-align: center; padding: 2rem;">
+                        <i class="fa-solid fa-circle-notch fa-spin"></i> Calcul mathématique des corrélations en cours...
+                    </div>
+
+                    <div id="correlation-content" style="display: none;">
+                        <!-- Sector Breakdown -->
+                        <div class="correlation-section-box">
+                            <h4><i class="fa-solid fa-chart-pie"></i> Exposition Sectorielle Estimée</h4>
+                            <div class="sector-bars-container" id="sector-bars-container"></div>
+                        </div>
+
+                        <!-- Overlap Warnings -->
+                        <div class="correlation-section-box">
+                            <h4><i class="fa-solid fa-triangle-exclamation text-amber"></i> Risques de Surexposition Identique (Corrélation &gt; 0.70)</h4>
+                            <div id="overlaps-list-container" class="overlaps-list-container"></div>
+                        </div>
+
+                        <!-- Hedges -->
+                        <div class="correlation-section-box">
+                            <h4><i class="fa-solid fa-shield-halved text-emerald"></i> Effet Amortisseur & Décorrélation (Corrélation négative)</h4>
+                            <div id="hedges-list-container" class="hedges-list-container"></div>
+                        </div>
+
+                        <!-- Full Heatmap Matrix Table -->
+                        <div class="correlation-section-box">
+                            <h4><i class="fa-solid fa-table-cells"></i> Matrice Complète des Corrélations</h4>
+                            <div class="matrix-table-responsive" id="matrix-table-container"></div>
                         </div>
                     </div>
                 </div>

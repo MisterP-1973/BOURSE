@@ -182,11 +182,14 @@ def compute_technical_indicators(symbol, current_price=None, asset_type='Equity'
     default_res = {
         'symbol': symbol,
         'available': False,
+        'current_price': current_price or 0.0,
         'rsi': 50.0,
-        'rsi_status': 'Neutre (50)',
+        'rsi_status': 'Données insuffisantes',
         'rsi_color': 'blue',
-        'sma20': None,
-        'sma50': None,
+        'rsi_oversold': False,
+        'rsi_overbought': False,
+        'sma20': current_price or 0.0,
+        'sma50': current_price or 0.0,
         'sma200': None,
         'trend': 'Neutre',
         'trend_color': 'blue',
@@ -199,11 +202,23 @@ def compute_technical_indicators(symbol, current_price=None, asset_type='Equity'
         'macd_color': 'blue',
         'atr': 0.0,
         'atr_pct': 2.5,
-        'support': None,
-        'resistance': None,
-        'stop_loss': None,
+        'support': round((current_price or 1.0) * 0.95, 2),
+        'resistance': round((current_price or 1.0) * 1.05, 2),
+        'bollinger': { 'upper': round((current_price or 1.0) * 1.05, 2), 'middle': current_price or 1.0, 'lower': round((current_price or 1.0) * 0.95, 2), 'bandwidth': 10.0 },
+        'fibonacci': { 'fibo_236': current_price or 0.0, 'fibo_382': current_price or 0.0, 'fibo_500': current_price or 0.0, 'fibo_618': current_price or 0.0 },
+        'dca_zones': {
+            'zone1': round((current_price or 1.0) * 0.98, 2),
+            'zone1_pct': -2.0,
+            'zone2': round((current_price or 1.0) * 0.94, 2),
+            'zone2_pct': -6.0,
+            'zone3': round((current_price or 1.0) * 0.88, 2),
+            'zone3_pct': -12.0,
+            'timing_status': 'Consolidation / Neutre',
+            'timing_color': 'blue'
+        },
+        'stop_loss': round((current_price or 1.0) * 0.95, 2),
         'stop_loss_pct': -5.0,
-        'take_profit': None,
+        'take_profit': round((current_price or 1.0) * 1.10, 2),
         'take_profit_pct': 10.0,
         'risk_reward_ratio': 2.0
     }
@@ -315,12 +330,50 @@ def compute_technical_indicators(symbol, current_price=None, asset_type='Equity'
         atr_val = float(tr.rolling(14).mean().iloc[-1]) if len(df) >= 14 else (cp * 0.02)
         atr_pct = (atr_val / cp) * 100 if cp > 0 else 2.0
 
-        # 5. Support & Resistance (last 60 trading days)
+        # 5. Support, Resistance & Fibonacci Retracements (last 60 trading days)
         recent_df = df.iloc[-60:] if len(df) >= 60 else df
         support = float(recent_df['Low'].min())
         resistance = float(recent_df['High'].max())
+        price_range = max(0.001, resistance - support)
 
-        # 6. Money Management (Stop-Loss & Take-Profit)
+        fibo_236 = resistance - (0.236 * price_range)
+        fibo_382 = resistance - (0.382 * price_range)
+        fibo_500 = resistance - (0.500 * price_range)
+        fibo_618 = resistance - (0.618 * price_range)
+
+        # 6. Bollinger Bands (20, 2)
+        bb_mid = sma20
+        bb_std = float(df['Close'].rolling(20).std().iloc[-1]) if len(df) >= 20 else (cp * 0.02)
+        bb_upper = bb_mid + (2 * bb_std)
+        bb_lower = max(0.0001, bb_mid - (2 * bb_std))
+        bb_bandwidth = ((bb_upper - bb_lower) / bb_mid * 100) if bb_mid > 0 else 5.0
+
+        # 7. Smart DCA & Accumulation Zones (3 Tiers)
+        # Zone 1 (Tranche 1 / Pullback modéré): Support immédiat ou SMA20
+        z1_price = max(0.0001, min(cp * 0.985, sma20 if (sma20 < cp and sma20 > support) else cp * 0.97))
+        # Zone 2 (Tranche 2 / Pullback optimal): SMA50 ou Fibonacci 50%
+        z2_price = max(0.0001, min(cp * 0.94, sma50 if (sma50 < cp and sma50 > support) else (fibo_500 if fibo_500 < cp else cp * 0.93)))
+        # Zone 3 (Tranche 3 / Value Dip Majeur): SMA200 ou Support 60j
+        z3_price = max(0.0001, min(cp * 0.88, sma200 if (sma200 and sma200 < cp) else (support * 1.01 if support < cp else cp * 0.88)))
+
+        # Timing Status Assessment
+        if rsi_val >= 70 or cp >= (bb_upper * 0.99):
+            timing_status = "⚠️ Zone de Surachat (Prudence / Attendre repli technique)"
+            timing_color = "rose"
+        elif rsi_val <= 35 or cp <= (bb_lower * 1.01):
+            timing_status = "⚡ Opportunité Immédiate (Zone de Survente / Rebond probable)"
+            timing_color = "emerald"
+        elif abs(cp - sma50) / cp < 0.03 and cp >= sma50:
+            timing_status = "🎯 Zone d'Accumulation Optimale (Sur Support SMA 50)"
+            timing_color = "teal"
+        elif cp > sma20 > sma50:
+            timing_status = "🚀 Tendance Haussière Saine (DCA régulier / Achat par paliers)"
+            timing_color = "indigo"
+        else:
+            timing_status = "⚖️ Phase de Consolidation / Neutre"
+            timing_color = "blue"
+
+        # 8. Money Management (Stop-Loss & Take-Profit)
         is_crypto = (asset_type == 'Crypto') or ('-USD' in sym) or ('-EUR' in sym) or ('-CHF' in sym)
         sl_mult = 2.0 if is_crypto else 1.5
         tp_mult = 4.0 if is_crypto else 3.0
@@ -344,6 +397,8 @@ def compute_technical_indicators(symbol, current_price=None, asset_type='Equity'
             'rsi': rsi_val,
             'rsi_status': rsi_status,
             'rsi_color': rsi_color,
+            'rsi_oversold': rsi_val <= 35,
+            'rsi_overbought': rsi_val >= 70,
             'sma20': round(sma20, 2),
             'sma50': round(sma50, 2),
             'sma200': round(sma200, 2) if sma200 else None,
@@ -360,6 +415,28 @@ def compute_technical_indicators(symbol, current_price=None, asset_type='Equity'
             'atr_pct': round(atr_pct, 2),
             'support': round(support, 2),
             'resistance': round(resistance, 2),
+            'bollinger': {
+                'upper': round(bb_upper, 2),
+                'middle': round(bb_mid, 2),
+                'lower': round(bb_lower, 2),
+                'bandwidth': round(bb_bandwidth, 1)
+            },
+            'fibonacci': {
+                'fibo_236': round(fibo_236, 2),
+                'fibo_382': round(fibo_382, 2),
+                'fibo_500': round(fibo_500, 2),
+                'fibo_618': round(fibo_618, 2)
+            },
+            'dca_zones': {
+                'zone1': round(z1_price, 4 if is_crypto and z1_price < 1 else 2),
+                'zone1_pct': round(((z1_price - cp) / cp * 100), 1) if cp > 0 else -2.0,
+                'zone2': round(z2_price, 4 if is_crypto and z2_price < 1 else 2),
+                'zone2_pct': round(((z2_price - cp) / cp * 100), 1) if cp > 0 else -6.0,
+                'zone3': round(z3_price, 4 if is_crypto and z3_price < 1 else 2),
+                'zone3_pct': round(((z3_price - cp) / cp * 100), 1) if cp > 0 else -12.0,
+                'timing_status': timing_status,
+                'timing_color': timing_color
+            },
             'stop_loss': round(sl_price, 4 if is_crypto and sl_price < 1 else 2),
             'stop_loss_pct': round(sl_pct, 1),
             'take_profit': round(tp_price, 4 if is_crypto and tp_price < 1 else 2),
@@ -518,6 +595,16 @@ def fetch_single_stock_details(symbol, fallback_price, fallback_currency='USD'):
         'currency': fallback_currency,
         'sparkline': [],
         'pe_ratio': None,
+        'peg_ratio': None,
+        'roe': None,
+        'operating_margins': None,
+        'debt_to_equity': None,
+        'free_cashflow': None,
+        'beta': None,
+        'sector': 'Diversifié',
+        'industry': 'Marché',
+        'earnings_date': None,
+        'days_to_earnings': None,
         'dividend_yield': None,
         'fifty_two_week_high': None,
         'fifty_two_week_low': None,
@@ -574,6 +661,33 @@ def fetch_single_stock_details(symbol, fallback_price, fallback_currency='USD'):
                 info = ticker.info or {}
                 if info:
                     data['pe_ratio'] = info.get('trailingPE') or info.get('forwardPE')
+                    data['peg_ratio'] = info.get('pegRatio')
+                    data['roe'] = info.get('returnOnEquity')
+                    data['operating_margins'] = info.get('operatingMargins')
+                    data['debt_to_equity'] = info.get('debtToEquity')
+                    data['free_cashflow'] = info.get('freeCashflow')
+                    data['beta'] = info.get('beta')
+                    data['sector'] = info.get('sector') or ('Crypto' if sym.endswith('-USD') else 'Diversifié')
+                    data['industry'] = info.get('industry') or ('Actif Numérique' if sym.endswith('-USD') else 'Marché')
+
+                    # Earnings Calendar extraction
+                    try:
+                        e_ts = info.get('earningsTimestamp') or info.get('earningsTimestampStart')
+                        if e_ts:
+                            dt_e = datetime.fromtimestamp(int(e_ts))
+                            data['earnings_date'] = dt_e.strftime('%Y-%m-%d')
+                            diff_days = (dt_e.date() - datetime.today().date()).days
+                            data['days_to_earnings'] = diff_days if diff_days >= 0 else None
+                        else:
+                            cal = ticker.calendar
+                            if isinstance(cal, dict) and 'Earnings Date' in cal and cal['Earnings Date']:
+                                ed = cal['Earnings Date'][0]
+                                if hasattr(ed, 'strftime'):
+                                    data['earnings_date'] = ed.strftime('%Y-%m-%d')
+                                    diff_days = (ed - datetime.today().date()).days if hasattr(ed, 'days') else (datetime.strptime(str(ed)[:10], '%Y-%m-%d').date() - datetime.today().date()).days
+                                    data['days_to_earnings'] = diff_days if diff_days >= 0 else None
+                    except Exception:
+                        pass
                     
                     # Dividend Rate & Yield
                     div_rate = info.get('dividendRate') or info.get('trailingAnnualDividendRate')
@@ -1238,12 +1352,21 @@ def analyze_stock(id):
     is_overweight = pos_weight > profile['max_position_weight']
 
     # Technical text block for prompt
+    dca = tech.get('dca_zones', {})
+    fib = tech.get('fibonacci', {})
+    boll = tech.get('bollinger', {})
+
     tech_summary = f"""- RSI (14 jours) : {tech['rsi']} ({tech['rsi_status']})
 - Tendance & Moyennes Mobiles : {tech['trend']} | SMA 20: {tech['sma20']} | SMA 50: {tech['sma50']} | SMA 200: {tech['sma200'] or 'N/D'}
 - Signal Croisement : {'Golden Cross (Haussier)' if tech['golden_cross'] else ('Death Cross (Baissier)' if tech['death_cross'] else 'Neutre')}
 - Momentum MACD : {tech['macd_status']} (MACD: {tech['macd']}, Signal: {tech['macd_signal']}, Hist: {tech['macd_hist']})
-- Volatilité ATR (14j) : {tech['atr']} {stock.currency} ({tech['atr_pct']}% du cours)
-- Niveaux Clés Récent : Support: {tech['support']} {stock.currency} | Résistance: {tech['resistance']} {stock.currency}
+- Bandes de Bollinger (20,2) : Inf {boll.get('lower')} | Sup {boll.get('upper')} (Largeur: {boll.get('bandwidth')}%)
+- Retracements Fibonacci : 38.2%={fib.get('fibo_382')} | 50.0%={fib.get('fibo_500')} | 61.8%={fib.get('fibo_618')}
+- Plan d'Accumulation DCA Suggéré :
+  * Timing actuel : {dca.get('timing_status', 'N/D')}
+  * Tranche 1 (Entrée / Pullback léger) : {dca.get('zone1')} {stock.currency} ({dca.get('zone1_pct'):+.1f}%)
+  * Tranche 2 (Entrée Optimale / Pullback sain) : {dca.get('zone2')} {stock.currency} ({dca.get('zone2_pct'):+.1f}%)
+  * Tranche 3 (Value Dip / Creux Majeur) : {dca.get('zone3')} {stock.currency} ({dca.get('zone3_pct'):+.1f}%)
 - Money Management Suggéré :
   * Stop-Loss de protection : {tech['stop_loss']} {stock.currency} ({tech['stop_loss_pct']:+.1f}%)
   * Take-Profit / Cible : {tech['take_profit']} {stock.currency} ({tech['take_profit_pct']:+.1f}%)
@@ -1280,7 +1403,7 @@ INFORMATIONS DE LA POSITION :
 - Plus/Moins-value latente : {pl_percent:+.2f}%
 - Quantité détenue : {stock.quantity} (Valeur: {(stock.quantity * current_price):.2f} {stock.currency})
 
-INDICATEURS TECHNIQUES & MONEY MANAGEMENT :
+INDICATEURS TECHNIQUES, DCA & MONEY MANAGEMENT :
 {tech_summary}
 
 MÉTRIQUES ON-CHAIN & MARCHÉ :
@@ -1291,8 +1414,8 @@ ACTUALITÉS RÉCENTES :
 
 CONSIGNES DE RÉPONSE :
 Fournis une analyse structurée et percutante en 4 parties en Markdown :
-1. 📌 **Synthèse Fondamentale & Dynamique On-Chain** (Adoption, liquidité, sentiment de marché)
-2. 📊 **Analyse Technique & Momentum** (Interprétation du RSI {tech['rsi']}, configuration des moyennes mobiles et MACD)
+1. 📌 **Synthèse Fondamentale, Sentiment & Dynamique On-Chain** (Adoption, liquidité, sentiment de marché)
+2. 📊 **Analyse Technique, Momentum & Plan d'Accumulation DCA** (Interprétation du RSI {tech['rsi']}, MACD et validation des zones d'achat par tranches {dca.get('zone1')} et {dca.get('zone2')} {stock.currency})
 3. 🛡️ **Gestion du Risque & Money Management** (Validation du Stop-Loss {tech['stop_loss']} {stock.currency} et Take-Profit {tech['take_profit']} {stock.currency}, gestion du poids de {pos_weight:.1f}%)
 4. 🎯 **Conseil Stratégique Personnalisé** (Adapté spécifiquement à son profil {profile['risk_profile']} et horizon {profile['investment_horizon']})
 
@@ -1303,15 +1426,27 @@ RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
         try:
             ticker = yf.Ticker(stock.symbol)
             info = ticker.info or {}
-            pe = info.get('trailingPE')
-            div = info.get('dividendYield')
-            target = info.get('targetMeanPrice')
-            rec_consensus = info.get('recommendationKey')
+            pe = details.get('pe_ratio')
+            peg = details.get('peg_ratio')
+            roe = details.get('roe')
+            debt_eq = details.get('debt_to_equity')
+            fcf = details.get('free_cashflow')
+            beta = details.get('beta')
+            div = details.get('dividend_yield')
+            target = details.get('target_mean_price')
+            rec_consensus = details.get('analyst_consensus')
+            e_date = details.get('earnings_date')
+            e_days = details.get('days_to_earnings')
             
             financial_ratios = f"- P/E (PER): {pe if pe else 'N/D'}\n"
-            financial_ratios += f"- Rendement dividende: {round(div*100, 2) if div else 'N/D'}%\n"
+            financial_ratios += f"- PEG Ratio: {peg if peg else 'N/D'}\n"
+            financial_ratios += f"- Rentabilité des capitaux (ROE): {f'{roe*100:.1f}%' if roe else 'N/D'}\n"
+            financial_ratios += f"- Dette / Fonds Propres (Debt/Equity): {debt_eq if debt_eq else 'N/D'}\n"
+            financial_ratios += f"- Bêta: {beta if beta else 'N/D'}\n"
+            financial_ratios += f"- Rendement dividende: {div:.2f}%\n" if div else "- Rendement dividende: 0.0%\n"
+            financial_ratios += f"- Prochains Résultats (Earnings): {e_date} ({e_days} jours restants)\n" if e_date else "- Prochains Résultats: Non planifiés\n"
             financial_ratios += f"- Prix cible moyen analystes: {target if target else 'N/D'} {stock.currency}\n"
-            financial_ratios += f"- Consensus analystes Wall Street: {rec_consensus.upper() if rec_consensus else 'N/D'}\n"
+            financial_ratios += f"- Consensus analystes Wall Street: {rec_consensus if rec_consensus else 'N/D'}\n"
         except Exception:
             financial_ratios = "Ratios non disponibles."
 
@@ -1326,16 +1461,16 @@ PROFIL DE L'INVESTISSEUR :
 - Poids dans le portefeuille : {pos_weight:.1f}% (Seuil max recommandé: {profile['max_position_weight']}%) {'⚠️ ALERTE SURPONDÉRATION' if is_overweight else '✅ Poids conforme'}
 
 INFORMATIONS DE LA POSITION :
-- Titre : {stock.name} ({stock.symbol}) [Type: {stock.asset_type or 'Action'}]
+- Titre : {stock.name} ({stock.symbol}) [Type: {stock.asset_type or 'Action'}, Secteur: {details.get('sector', 'Diversifié')}]
 - Prix d'achat (PRU) : {stock.purchase_price:.2f} {stock.currency}
 - Prix actuel : {current_price:.2f} {stock.currency}
 - Plus/Moins-value latente : {pl_percent:+.2f}%
 - Quantité : {stock.quantity} (Valeur: {(stock.quantity * current_price):.2f} {stock.currency})
 
-INDICATEURS TECHNIQUES & MONEY MANAGEMENT :
+INDICATEURS TECHNIQUES, DCA & MONEY MANAGEMENT :
 {tech_summary}
 
-INDICATEURS FONDAMENTAUX & CONSENSUS :
+INDICATEURS FONDAMENTAUX, QUALITÉ & CALENDRIER :
 {financial_ratios}
 
 ACTUALITÉS RÉCENTES DU MARCHÉ :
@@ -1343,8 +1478,8 @@ ACTUALITÉS RÉCENTES DU MARCHÉ :
 
 CONSIGNES DE RÉPONSE :
 Fournis une analyse structurée et percutante en 4 parties en Markdown :
-1. 📌 **Synthèse Fondamentale & Valorisation** (Santé financière, multiples, catalyseurs)
-2. 📊 **Analyse Technique & Momentum** (Interprétation du RSI {tech['rsi']}, tendance des moyennes mobiles et MACD)
+1. 📌 **Synthèse Fondamentale, Valorisation & Calendrier** (Santé financière, multiples P/E & PEG, proximité des résultats trimestriels)
+2. 📊 **Analyse Technique & Plan d'Accumulation DCA** (Interprétation du RSI {tech['rsi']}, moyennes mobiles, et validation des zones d'achat par tranches {dca.get('zone1')} et {dca.get('zone2')} {stock.currency})
 3. 🛡️ **Gestion du Risque & Money Management** (Validation du Stop-Loss {tech['stop_loss']} {stock.currency} et Take-Profit {tech['take_profit']} {stock.currency}, gestion du poids de {pos_weight:.1f}%)
 4. 🎯 **Conseil Stratégique Personnalisé** (Adapté spécifiquement à son profil {profile['risk_profile']} et horizon {profile['investment_horizon']})
 
@@ -1391,6 +1526,7 @@ RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
             'news_items': articles,
             'model_used': model_used,
             'technical': tech,
+            'details': details,
             'profile': profile,
             'weight_info': {
                 'weight_pct': round(pos_weight, 1),
@@ -1400,6 +1536,404 @@ RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
         })
     except Exception as e:
         return jsonify({'error': f"Erreur Gemini IA: {str(e)}"}), 500
+
+@app.route('/api/signals', methods=['GET'])
+def get_portfolio_signals():
+    """Scan all stocks in portfolio for live technical, risk and catalyst signals."""
+    stocks = Stock.query.all()
+    if not stocks:
+        return jsonify({'signals': [], 'summary': {'risks': 0, 'opportunities': 0, 'earnings': 0, 'total': 0}, 'total_count': 0})
+
+    profile = get_investor_profile()
+    ref_currency = get_reference_currency()
+    fx_rates = get_forex_rates()
+
+    total_val_ref = 0.0
+    stock_values = {}
+    for s in stocks:
+        details = fetch_single_stock_details(s.symbol, s.purchase_price, s.currency)
+        cp = details.get('current_price', s.purchase_price)
+        val = convert_currency(s.quantity * cp, s.currency, ref_currency, fx_rates)
+        total_val_ref += val
+        stock_values[s.id] = (cp, val, details)
+
+    signals = []
+    risks_count = 0
+    opps_count = 0
+    earnings_count = 0
+
+    for s in stocks:
+        cp, val_ref, details = stock_values[s.id]
+        tech = compute_technical_indicators(s.symbol, cp, s.asset_type, s.currency)
+        weight_pct = (val_ref / total_val_ref * 100) if total_val_ref > 0 else 0
+
+        # 1. Earnings alert (within 14 days)
+        days_e = details.get('days_to_earnings')
+        if days_e is not None and 0 <= days_e <= 14:
+            earnings_count += 1
+            signals.append({
+                'id': f"earn_{s.id}",
+                'symbol': s.symbol,
+                'name': s.name,
+                'type': 'earnings',
+                'category': 'Résultats Imminents',
+                'severity': 'warning' if days_e <= 3 else 'info',
+                'icon': 'fa-calendar-day',
+                'title': f"Publication des Résultats : {s.symbol}",
+                'message': f"Publication des résultats financiers dans {days_e} jour(s) ({details.get('earnings_date')}). Volatilité accrue attendue.",
+                'action': 'Surveiller avant publication'
+            })
+
+        # 2. Stop-loss alerts
+        sl_price = tech.get('stop_loss')
+        if sl_price is not None and sl_price > 0 and cp > 0:
+            if cp <= sl_price:
+                risks_count += 1
+                signals.append({
+                    'id': f"sl_breach_{s.id}",
+                    'symbol': s.symbol,
+                    'name': s.name,
+                    'type': 'risk',
+                    'category': 'Stop-Loss Enfoncé',
+                    'severity': 'danger',
+                    'icon': 'fa-triangle-exclamation',
+                    'title': f"Alerte Rupture Stop-Loss : {s.symbol}",
+                    'message': f"Le cours actuel ({cp} {s.currency}) est passé sous le Stop-Loss protecteur ({sl_price} {s.currency}).",
+                    'action': 'Allègement ou clôture défensive suggéré'
+                })
+            elif (cp - sl_price) / cp < 0.035:
+                risks_count += 1
+                signals.append({
+                    'id': f"sl_near_{s.id}",
+                    'symbol': s.symbol,
+                    'name': s.name,
+                    'type': 'risk',
+                    'category': 'Proximité Stop-Loss',
+                    'severity': 'warning',
+                    'icon': 'fa-shield-halved',
+                    'title': f"Proximité du Seuil d'Invalidation : {s.symbol}",
+                    'message': f"Le cours ({cp} {s.currency}) est à moins de 3.5% du niveau de protection ({sl_price} {s.currency}).",
+                    'action': 'Surveillance rapprochée'
+                })
+
+        # 3. Take-profit alerts
+        tp_price = tech.get('take_profit')
+        if tp_price is not None and tp_price > 0 and cp > 0 and cp >= (tp_price * 0.97):
+            opps_count += 1
+            signals.append({
+                'id': f"tp_near_{s.id}",
+                'symbol': s.symbol,
+                'name': s.name,
+                'type': 'opportunity',
+                'category': 'Objectif Atteint',
+                'severity': 'success',
+                'icon': 'fa-bullseye',
+                'title': f"Objectif Take-Profit Atteint : {s.symbol}",
+                'message': f"Le cours ({cp} {s.currency}) a atteint la cible fixée ({tp_price} {s.currency}).",
+                'action': 'Sécuriser une prise de bénéfices partielle (1/3 ou 1/2)'
+            })
+
+        # 4. Technical Crosses
+        if tech.get('golden_cross'):
+            opps_count += 1
+            signals.append({
+                'id': f"gc_{s.id}",
+                'symbol': s.symbol,
+                'name': s.name,
+                'type': 'opportunity',
+                'category': 'Golden Cross',
+                'severity': 'success',
+                'icon': 'fa-arrow-trend-up',
+                'title': f"Signal Haussier Golden Cross : {s.symbol}",
+                'message': f"La SMA 50 jours a croisé à la hausse la SMA 200 jours. Configuration haussière de fond confirmée.",
+                'action': 'Conserver ou accumuler sur repli'
+            })
+        elif tech.get('death_cross'):
+            risks_count += 1
+            signals.append({
+                'id': f"dc_{s.id}",
+                'symbol': s.symbol,
+                'name': s.name,
+                'type': 'risk',
+                'category': 'Death Cross',
+                'severity': 'danger',
+                'icon': 'fa-arrow-trend-down',
+                'title': f"Signal Baissier Death Cross : {s.symbol}",
+                'message': f"La SMA 50 jours a croisé à la baisse la SMA 200 jours. Tendance de fond dégradée.",
+                'action': 'Prudence / Allègement tactique'
+            })
+
+        # 5. RSI Extremes
+        rsi_val = tech.get('rsi', 50)
+        if rsi_val <= 32:
+            opps_count += 1
+            signals.append({
+                'id': f"rsi_os_{s.id}",
+                'symbol': s.symbol,
+                'name': s.name,
+                'type': 'opportunity',
+                'category': 'Survente RSI',
+                'severity': 'emerald',
+                'icon': 'fa-bolt',
+                'title': f"Forte Survente RSI ({rsi_val}) : {s.symbol}",
+                'message': f"Le RSI 14j est à {rsi_val} (zone extrême de survente). Probabilité élevée de rebond technique.",
+                'action': 'Opportunité d\'achat / Tranche DCA 1'
+            })
+        elif rsi_val >= 73:
+            risks_count += 1
+            signals.append({
+                'id': f"rsi_ob_{s.id}",
+                'symbol': s.symbol,
+                'name': s.name,
+                'type': 'risk',
+                'category': 'Surachat RSI',
+                'severity': 'warning',
+                'icon': 'fa-fire-flame-curved',
+                'title': f"Zone de Surchauffe RSI ({rsi_val}) : {s.symbol}",
+                'message': f"Le RSI 14j est à {rsi_val} (zone de surachat). Risque imminent de consolidation ou de prise de bénéfices.",
+                'action': 'Attendre un repli avant tout achat'
+            })
+
+        # 6. Portfolio Overweight
+        if weight_pct > profile['max_position_weight']:
+            risks_count += 1
+            signals.append({
+                'id': f"ow_{s.id}",
+                'symbol': s.symbol,
+                'name': s.name,
+                'type': 'risk',
+                'category': 'Surpondération',
+                'severity': 'warning',
+                'icon': 'fa-scale-unbalanced',
+                'title': f"Ligne Surpondérée à {weight_pct:.1f}% : {s.symbol}",
+                'message': f"Poids de {weight_pct:.1f}% supérieur au seuil max fixé dans votre profil ({profile['max_position_weight']}%).",
+                'action': 'Rééquilibrer pour diversifier le risque'
+            })
+
+    return jsonify({
+        'signals': signals,
+        'summary': {
+            'risks': risks_count,
+            'opportunities': opps_count,
+            'earnings': earnings_count,
+            'total': len(signals)
+        },
+        'total_count': len(signals)
+    })
+
+@app.route('/api/portfolio/correlation', methods=['GET'])
+def get_portfolio_correlation():
+    """Compute mathematical Pearson correlation matrix and sector exposure breakdown."""
+    stocks = Stock.query.all()
+    if len(stocks) < 2:
+        return jsonify({
+            'available': False,
+            'message': 'Au moins 2 positions sont nécessaires pour calculer la matrice de corrélation.',
+            'symbols': [s.symbol for s in stocks],
+            'matrix': {},
+            'overlaps': [],
+            'hedges': [],
+            'sectors': {}
+        })
+
+    data_series = {}
+    sectors = {}
+    total_val_ref = 0.0
+    ref_currency = get_reference_currency()
+    fx_rates = get_forex_rates()
+
+    for s in stocks:
+        details = fetch_single_stock_details(s.symbol, s.purchase_price, s.currency)
+        cp = details.get('current_price', s.purchase_price)
+        val_ref = convert_currency(s.quantity * cp, s.currency, ref_currency, fx_rates)
+        total_val_ref += val_ref
+        
+        sec = details.get('sector') or ('Crypto' if s.asset_type == 'Crypto' else 'Diversifié')
+        sectors[sec] = sectors.get(sec, 0.0) + val_ref
+
+        try:
+            t = yf.Ticker(s.symbol)
+            h = t.history(period='6mo')
+            if not h.empty:
+                idx = pd.to_datetime(h.index).tz_localize(None).normalize()
+                s_close = pd.Series(h['Close'].values, index=idx)
+                pct = s_close.pct_change()
+                data_series[s.symbol] = pct
+        except Exception as e:
+            print(f"Error fetching history for correlation ({s.symbol}): {e}")
+
+    # Convert sectors to percentages
+    sector_weights = {}
+    for sec, val in sectors.items():
+        sector_weights[sec] = round((val / total_val_ref * 100), 1) if total_val_ref > 0 else 0
+
+    if len(data_series) < 2:
+        return jsonify({
+            'available': False,
+            'message': 'Historique de cours insuffisant pour calculer les corrélations.',
+            'symbols': list(data_series.keys()),
+            'matrix': {},
+            'overlaps': [],
+            'hedges': [],
+            'sectors': sector_weights
+        })
+
+    df = pd.DataFrame(data_series).dropna(how='all').ffill().dropna()
+    if df.empty or len(df.columns) < 2:
+        return jsonify({
+            'available': False,
+            'message': 'Données historiques insuffisantes pour la matrice.',
+            'symbols': list(data_series.keys()),
+            'matrix': {},
+            'overlaps': [],
+            'hedges': [],
+            'sectors': sector_weights
+        })
+
+    corr_matrix = df.corr()
+    symbols_list = list(corr_matrix.columns)
+    matrix_dict = {}
+    overlaps = []
+    hedges = []
+
+    for sym1 in symbols_list:
+        matrix_dict[sym1] = {}
+        for sym2 in symbols_list:
+            val = float(corr_matrix.loc[sym1, sym2])
+            val_clean = 0.0 if np.isnan(val) else round(val, 2)
+            matrix_dict[sym1][sym2] = val_clean
+
+            if sym1 < sym2: # avoid duplicate pairs
+                if val_clean >= 0.70:
+                    overlaps.append({
+                        'sym1': sym1,
+                        'sym2': sym2,
+                        'correlation': val_clean,
+                        'level': 'Très Forte' if val_clean >= 0.85 else 'Forte',
+                        'warning': 'Risque de doublon / surexposition identique'
+                    })
+                elif val_clean <= -0.10:
+                    hedges.append({
+                        'sym1': sym1,
+                        'sym2': sym2,
+                        'correlation': val_clean,
+                        'level': 'Décorrélée',
+                        'benefit': 'Excellente diversification / effet amortisseur de crise'
+                    })
+
+    overlaps.sort(key=lambda x: x['correlation'], reverse=True)
+    hedges.sort(key=lambda x: x['correlation'])
+
+    return jsonify({
+        'available': True,
+        'symbols': symbols_list,
+        'matrix': matrix_dict,
+        'overlaps': overlaps,
+        'hedges': hedges,
+        'sectors': sector_weights
+    })
+
+@app.route('/api/portfolio/stress-test', methods=['POST'])
+def run_portfolio_stress_test():
+    """Run macro crisis stress-testing simulations on portfolio with Gemini."""
+    api_key = get_api_key()
+    if not api_key:
+        return jsonify({'error': 'Clé API Gemini non configurée. Veuillez l\'ajouter dans les paramètres.'}), 400
+
+    stocks = Stock.query.all()
+    if not stocks:
+        return jsonify({'error': 'Votre portefeuille est vide.'}), 400
+
+    data = request.json or {}
+    scenario_type = data.get('scenario', 'all')
+
+    ref_currency = get_reference_currency()
+    fx_rates = get_forex_rates()
+    profile = get_investor_profile()
+
+    total_val_ref = 0.0
+    lines = []
+
+    for s in stocks:
+        details = fetch_single_stock_details(s.symbol, s.purchase_price, s.currency)
+        cp = details.get('current_price', s.purchase_price)
+        val_ref = convert_currency(s.quantity * cp, s.currency, ref_currency, fx_rates)
+        total_val_ref += val_ref
+
+        lines.append({
+            'symbol': s.symbol,
+            'name': s.name,
+            'asset_type': s.asset_type or 'Equity',
+            'sector': details.get('sector', 'Diversifié'),
+            'beta': details.get('beta', 1.0),
+            'currency': s.currency,
+            'current_price': cp,
+            'val_ref': val_ref,
+            'pe': details.get('pe_ratio')
+        })
+
+    summary_lines = []
+    for item in lines:
+        weight = (item['val_ref'] / total_val_ref * 100) if total_val_ref > 0 else 0
+        summary_lines.append(
+            f"- **{item['symbol']}** ({item['name']}) | Type: {item['asset_type']} | Secteur: {item['sector']} | Beta: {item['beta'] or 'N/D'} | Devise: {item['currency']} | Poids: {weight:.1f}% | Valeur: {item['val_ref']:,.2f} {ref_currency}"
+        )
+
+    portfolio_desc = "\n".join(summary_lines)
+
+    scenario_descriptions = {
+        'inflation_rates': "SCÉNARIO 1 : Choc Inflationniste et Hausse Aiguë des Taux d'Intérêt (+150 bps par les banques centrales)",
+        'recession_crash': "SCÉNARIO 2 : Récession Mondiale Sévère et Krach Boursier Global (-20% sur les grands indices)",
+        'energy_shock': "SCÉNARIO 3 : Choc Géopolitique & Flambée des Matières Premières / Énergie (+40% sur le pétrole et gaz)",
+        'usd_drop': "SCÉNARIO 4 : Dépréciation Brutale du Dollar US (-10% face au Franc Suisse CHF et à l'Euro EUR)",
+        'all': "4 SCÉNARIOS CRITIQUES DE MARCHÉ (Taux élevés + Krach récession -20% + Choc Énergie + Dépréciation USD)"
+    }
+
+    selected_desc = scenario_descriptions.get(scenario_type, scenario_descriptions['all'])
+
+    prompt = f"""
+Tu es le Responsable Mondial de la Gestion des Risques (Chief Risk Officer & Quantitative Stress-Tester) d'une banque privée suisse institutionnelle.
+Réalise un STRESS-TEST MACROÉCONOMIQUE & CRASH-TEST APPROFONDI sur le portefeuille réel suivant :
+
+PROFIL DE L'INVESTISSEUR :
+- Profil : {profile['risk_label']}
+- Horizon : {profile['horizon_label']}
+- Devise de référence : {ref_currency}
+- Valeur totale du portefeuille : {total_val_ref:,.2f} {ref_currency}
+
+COMPOSITION ACTUELLE DU PORTEFEUILLE :
+{portfolio_desc}
+
+CADRE DE SIMULATION :
+{selected_desc}
+
+STRUCTURE EXIGÉE DU RAPPORT (en français, format Markdown structuré et chiffré) :
+
+1. 🌪️ **Évaluation de l'Impact Global & Perte/Gain Estimé**
+   - Note de résilience globale du portefeuille face à ce choc (Score sur 100).
+   - Estimation chiffrée de la variation de valeur globale du portefeuille (ex: -12.4% / -{total_val_ref * 0.124:,.0f} {ref_currency}).
+
+2. ⚠️ **Lignes les Plus Vulnérables (Top Risques)**
+   - Détail des 2 à 3 actifs qui subiraient la plus forte baisse et explications quantitatives (sensibilité aux taux, fort bêta, dépendance énergétique, effet de change devise).
+
+3. 🛡️ **Lignes Résilientes & Actifs « Coussins » (Top Amortisseurs)**
+   - Détail des actifs du portefeuille qui résisteraient le mieux ou profiteraient du choc (pricing power, valeur refuge, matières premières, etc.).
+
+4. 🎯 **Recommandations de Couverture (Hedging & Optimisation)**
+   - 3 mesures concrètes et calibrées (ex: diversification géographique, introduction d'actifs décorrélés or/commodities/cash CHF, ajustement des Stop-Loss).
+"""
+
+    try:
+        analysis_text, model_used = call_gemini_with_fallback(api_key, prompt)
+        return jsonify({
+            'report': analysis_text,
+            'model_used': model_used,
+            'scenario': scenario_type,
+            'portfolio_value': total_val_ref,
+            'ref_currency': ref_currency
+        })
+    except Exception as e:
+        return jsonify({'error': f"Erreur Gemini Stress-Test: {str(e)}"}), 500
 
 @app.route('/api/analyze-all', methods=['POST'])
 def analyze_all_stocks():

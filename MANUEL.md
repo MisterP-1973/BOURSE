@@ -76,12 +76,47 @@ Ajoutez une action, un ETF, un fonds, une **cryptomonnaie** ou un **produit stru
 #### Sur chaque position :
 * 📉 **Sparkline 7 jours** : Mini-graphique de tendance intégré sur la carte.
 * 📈 **Graphique Historique Interactif** : Cliquez sur l'icône de graphique pour afficher l'évolution du cours sur **1 Mois, 6 Mois, 1 An et 5 Ans**.
-* 🤖 **Analyse IA Sur-Mesure & Indicateurs Techniques en Direct** : 
+* 🤖 **Analyse IA Sur-Mesure & Moteur Quantitatif Institutionnel** : 
   * 📊 **Dashboard Technique** : RSI (14j), Tendance des Moyennes Mobiles (SMA 20, 50, 200), Momentum MACD, Volatilité ATR et Niveaux clés Support/Résistance.
+  * 🎯 **Plan d'Accumulation DCA & Zones d'Achat par Paliers** :
+    * **Tranche 1 (Pullback Léger / Agressif)** : Support immédiat ou SMA 20.
+    * **Tranche 2 (Entrée Optimale / Pullback sain)** : SMA 50 ou Retracement Fibonacci 50%.
+    * **Tranche 3 (Value Dip / Creux Majeur)** : SMA 200 ou Support 60 jours.
+    * **Statut de Timing d'Entrée** : *Surachat (Attendre repli)*, *Opportunité Immédiate (Survente)*, *Zone d'Accumulation Optimale*.
+  * 📅 **Alerte Calendrier des Résultats (Earnings)** : Décompte des jours avant la prochaine publication trimestrielle.
   * 🛡️ **Money Management** : Stop-Loss protecteur chiffré, Objectif Take-Profit, Ratio Risque/Rendement (R:R) et contrôle du poids dans le portefeuille.
-  * 🎯 **Conseil Personnalisé** : Recommandation calibrée sur votre profil de risque (*Prudent, Équilibré, Dynamique, Agressif*) et votre horizon (*Court, Moyen, Long terme*).
+  * 🏆 **Indicateurs Fondamentaux & Consensus** : P/E, PEG Ratio, ROE, Free Cash Flow, Debt/Equity, Bêta et Consensus Wall Street.
 * ✏️ **Édition inline** : Modifiez quantité, PRU, date ou devise sans supprimer la ligne.
 * 🗑️ **Suppression sécurisée** : Modale moderne de confirmation.
+
+---
+
+## ⚡ Scanner de Signaux & Alertes Marché en Direct
+
+Directement sous les cartes de synthèse (KPIs), le **Scanner de Signaux** surveille en continu l'intégralité de vos positions :
+* 🔴 **Alertes Risques** : Rupture ou proximité de Stop-Loss (< 3.5%), Death Cross, Surachat extrême RSI (> 70), Surpondération de portefeuille.
+* 🟢 **Opportunités d'Achat** : Golden Cross (SMA 50 > SMA 200), Survente extrême RSI (< 32), Objectif Take-Profit atteint (> 95%).
+* 📅 **Résultats Imminents** : Alertes pour les titres dont la publication des résultats a lieu dans les 14 jours.
+
+---
+
+## 🌪️ Stress-Test Macroéconomique & Crash-Test
+
+En cliquant sur **"🌪️ Stress-Test"** dans la barre de navigation, vous pouvez simuler la réaction et l'impact financier de chocs économiques majeurs sur votre portefeuille via Gemini (Chief Risk Officer institutionnel) :
+1. **Choc Inflation & Taux d'Intérêt (+150 bps)** : Évalue la vulnérabilité des actifs de croissance face aux valeurs cycliques.
+2. **Récession Globale & Krach Boursier (-20%)** : Teste l'effet coussin des valeurs défensives, de l'or et des dividendes face aux actifs à fort bêta.
+3. **Choc Matières Premières & Énergie (+40%)** : Impact d'une flambée des hydrocarbures sur vos coûts et marges.
+4. **Dépréciation du Dollar US (-10% vs CHF/EUR)** : Évalue l'impact de conversion et le risque de change de vos avoirs libellés en devises étrangères.
+5. **Matrice Complète (4 Chocs)** : Diagnostic global intégrant le score de résilience (0 à 100), les 2 lignes les plus vulnérables, les 2 lignes protectrices et les recommandations de couverture (*Hedging*).
+
+---
+
+## 🧩 Matrice de Corrélation & Détection d'Overlap
+
+En cliquant sur l'icône **"Matrice de Corrélation"**, l'application calcule la corrélation mathématique (Pearson sur 6 mois) de vos actifs :
+* 🚨 **Détection des Doublons (Overlap > 0.70)** : Alerte si plusieurs de vos lignes évoluent de manière quasi identique, créant une illusion de diversification.
+* 🛡️ **Paires Protectrices (Corrélation Négative)** : Identifie les actifs qui montent quand le reste du marché baisse.
+* 📊 **Répartition Sectorielle Estimée** : Visualise votre exposition réelle par secteur (Tech, Finance, Santé, Crypto, Énergie, etc.).
 
 ---
 
@@ -104,7 +139,7 @@ En cliquant sur l'icône ⚙️ **Paramètres**, vous pouvez configurer votre pr
 
 ## 🤖 Audit Global du Portefeuille par l'IA
 
-En cliquant sur **"Audit Global IA"**, Gemini 3.x analyse l'ensemble de votre allocation en la confrontant à votre profil :
+En cliquant sur **"Audit Global IA"**, Gemini analyse l'ensemble de votre allocation en la confrontant à votre profil :
 1. 📊 **Diagnostic Global & Adéquation au Profil** (Score chiffré de santé 0 à 100 et détection des écarts de risque).
 2. ⚡ **Stratégie Court Terme (1 à 6 mois)** : Gestion des risques, lignes volatiles, allègements et prises de bénéfices opportunes.
 3. 🏛️ **Vision Stratégique Long Terme (3 à 5+ ans)** : Solidité des fondamentaux, dividendes pérennes et résilience.
