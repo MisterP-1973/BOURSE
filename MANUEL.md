@@ -94,12 +94,40 @@ En cliquant sur **"Audit Global IA"**, Gemini 3.x analyse l'ensemble de votre al
 
 ---
 
-## 💾 Sauvegarde & Export
+## 🛡️ Sauvegarde & Restauration Complète
 
+L'application intègre un système robuste de sauvegarde et de restauration pour vous protéger contre toute perte de données ou pour transférer votre portefeuille sur une autre machine.
+
+### 1. Sauvegarde Complète (.ZIP)
+* Cliquez sur l'icône de **Sauvegarde & Restauration** (icône bouclier dans l'en-tête).
+* Dans l'onglet **Sauvegarde**, cliquez sur **"Télécharger l'archive ZIP"**.
+* Cette archive contient :
+  * La base SQLite complète (`stocks.db`) avec tout votre historique d'analyses.
+  * Votre fichier de configuration (`config.json`) incluant votre clé API et préférences.
+  * Un export JSON universel (`data_export.json`).
+  * Un manifeste de métadonnées (`backup_metadata.json`).
+
+### 2. Points de Restauration Locaux (Snapshots)
+* Cliquez sur **"Créer un point local"** : un instantané est immédiatement sauvegardé dans le dossier `backups/` de votre application.
+* Dans l'onglet **Points Locaux**, vous pouvez :
+  * Consulter l'historique complet des sauvegardes (horodatage, taille, type).
+  * Restaurer n'importe quel point en 1 clic.
+  * Télécharger une sauvegarde spécifique.
+  * Supprimer les anciennes sauvegardes devenues inutiles.
+
+### 3. Restauration Sécurisée
+* Dans l'onglet **Restaurer**, déposez votre archive `.zip`, un fichier `.db` ou un fichier `.json`.
+* **Sécurité automatique :** Avant d'écraser la base active, un point de sécurité d'urgence (`pre_restore_safety_snapshot`) est automatiquement généré. Vous ne risquez donc jamais d'effacer vos données par accident.
+
+### 4. Scripts Windows autonomes (hors navigateur)
+* `backup.bat` : Double-cliquez pour générer instantanément une archive ZIP de sauvegarde sans avoir à ouvrir le navigateur.
+* `restore.bat` : Script interactif dans la console Windows permettant de choisir et restaurer un point de sauvegarde existant en cas de problème.
+
+### 5. Exports simples et Import
 * **Export CSV** : Fichier tableur compatible Excel, Google Sheets, LibreOffice.
-* **Export JSON** : Sauvegarde brute complète de votre base.
-* **Import** : Glissez-déposez ou sélectionnez un fichier CSV/JSON pour restaurer ou ajouter des positions en masse.
+* **Export JSON** : Export rapide de la liste des positions.
+* **Import de Positions** : Permet d'ajouter ou fusionner de nouvelles lignes depuis un CSV ou JSON sans modifier vos paramètres existants.
 
 ---
 
-*AI Stock Analyzer v2.0 — Août 2026*
+*AI Stock Analyzer v2.1 — Septembre 2026*

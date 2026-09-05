@@ -21,6 +21,10 @@ instance/
 *.sqlite
 *.sqlite3
 
+# Sauvegardes locales (backups)
+backups/
+*.zip
+
 # Configuration sensible (clé API Gemini)
 config.json
 

@@ -3,12 +3,14 @@ import json
 import time
 import csv
 import io
+import zipfile
+import shutil
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, jsonify, Response, send_file
 from flask_sqlalchemy import SQLAlchemy
 import yfinance as yf
 from google import genai
@@ -1251,62 +1253,321 @@ def export_stocks():
         headers={"Content-disposition": "attachment; filename=portefeuille_bourse.json"}
     )
 
-@app.route('/api/stocks/import', methods=['POST'])
-def import_stocks():
+# --- BACKUP & RESTORE UTILITIES & ROUTES ---
+
+BACKUP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backups')
+os.makedirs(BACKUP_DIR, exist_ok=True)
+
+def create_full_backup_archive(prefix="bourse_backup"):
+    """
+    Creates a full ZIP archive containing:
+    - instance/stocks.db
+    - config.json
+    - data_export.json (all stocks + analysis history)
+    - backup_metadata.json
+    Returns (zip_filepath, filename, metadata)
+    """
+    now_str = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    filename = f"{prefix}_{now_str}.zip"
+    zip_path = os.path.join(BACKUP_DIR, filename)
+
+    stocks = Stock.query.all()
+    history = AnalysisHistory.query.all()
+    config = load_config()
+
+    data_dump = {
+        'version': '2.0',
+        'timestamp': datetime.now().isoformat(),
+        'config': config,
+        'stocks': [s.to_dict() for s in stocks],
+        'history': [h.to_dict() for h in history]
+    }
+
+    metadata = {
+        'filename': filename,
+        'created_at': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
+        'timestamp_raw': time.time(),
+        'stocks_count': len(stocks),
+        'history_count': len(history),
+        'has_config': bool(config),
+        'size_bytes': 0
+    }
+
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'stocks.db')
+
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        if os.path.exists(db_path):
+            zipf.write(db_path, arcname='stocks.db')
+        if os.path.exists(CONFIG_FILE):
+            zipf.write(CONFIG_FILE, arcname='config.json')
+        zipf.writestr('data_export.json', json.dumps(data_dump, indent=2, ensure_ascii=False))
+        zipf.writestr('backup_metadata.json', json.dumps(metadata, indent=2, ensure_ascii=False))
+
+    metadata['size_bytes'] = os.path.getsize(zip_path)
+    return zip_path, filename, metadata
+
+def _restore_from_json_dict(data):
+    """Helper to restore database entries from a data dictionary."""
+    if isinstance(data, dict):
+        if 'config' in data and isinstance(data['config'], dict):
+            save_config(data['config'])
+        stocks_list = data.get('stocks', [])
+        history_list = data.get('history', [])
+    elif isinstance(data, list):
+        stocks_list = data
+        history_list = []
+    else:
+        stocks_list = []
+        history_list = []
+
+    # Reset tables
+    db.session.query(Stock).delete()
+    if history_list:
+        db.session.query(AnalysisHistory).delete()
+
+    for s in stocks_list:
+        stock = Stock(
+            symbol=s.get('symbol', '').strip().upper(),
+            name=s.get('name', ''),
+            purchase_date=s.get('purchase_date', 'Inconnue'),
+            quantity=float(s.get('quantity', 1)),
+            purchase_price=float(s.get('purchase_price', 0)),
+            currency=s.get('currency', 'USD').strip().upper(),
+            asset_type=s.get('asset_type', 'Equity'),
+            notes=s.get('notes', ''),
+            manual_price=float(s.get('manual_price')) if (s.get('manual_price') is not None and str(s.get('manual_price')).strip() != '') else None,
+            ai_recommendation=s.get('ai_recommendation')
+        )
+        db.session.add(stock)
+
+    for h in history_list:
+        hist = AnalysisHistory(
+            stock_id=h.get('stock_id'),
+            symbol=h.get('symbol', ''),
+            analysis_type=h.get('analysis_type', 'stock'),
+            recommendation=h.get('recommendation'),
+            analysis_text=h.get('analysis_text', '')
+        )
+        db.session.add(hist)
+
+    db.session.commit()
+
+def restore_from_archive_file(file_or_path, is_upload=True):
+    """
+    Restores application data from a ZIP archive, DB file or JSON file.
+    Creates an automatic emergency safety snapshot before any replacement.
+    """
+    # 1. Automatic emergency pre-restore snapshot
     try:
-        items = []
-        if 'file' in request.files:
-            file = request.files['file']
-            filename = file.filename.lower()
-            if filename.endswith('.json'):
-                content = file.read().decode('utf-8')
-                items = json.loads(content)
-            elif filename.endswith('.csv'):
-                content = file.read().decode('utf-8')
-                reader = csv.DictReader(io.StringIO(content))
-                for row in reader:
-                    items.append({
-                        'symbol': row.get('symbol', '').strip().upper(),
-                        'name': row.get('name', '').strip(),
-                        'purchase_date': row.get('purchase_date', 'Inconnue'),
-                        'quantity': float(row.get('quantity', 0)),
-                        'purchase_price': float(row.get('purchase_price', 0)),
-                        'currency': row.get('currency', 'USD').strip().upper(),
-                        'asset_type': row.get('asset_type', 'Equity')
-                    })
-        elif request.json:
-            items = request.json if isinstance(request.json, list) else request.json.get('stocks', [])
-
-        if not items:
-            return jsonify({'error': 'Aucune position trouvée dans le fichier.'}), 400
-
-        added_count = 0
-        for item in items:
-            sym = item.get('symbol', '').strip().upper()
-            if not sym:
-                continue
-            asset_type = item.get('asset_type', 'Equity')
-            currency = item.get('currency', 'USD').strip().upper()
-            norm_sym = normalize_crypto_symbol(sym, asset_type, currency)
-
-            new_stock = Stock(
-                symbol=norm_sym,
-                name=item.get('name', sym),
-                purchase_date=item.get('purchase_date', 'Inconnue') or 'Inconnue',
-                quantity=float(item.get('quantity', 1)),
-                purchase_price=float(item.get('purchase_price', 0)),
-                currency=currency,
-                asset_type=asset_type,
-                notes=item.get('notes', '')
-            )
-            db.session.add(new_stock)
-            added_count += 1
-
-        db.session.commit()
-        MARKET_CACHE.clear()
-        return jsonify({'message': f"{added_count} position(s) importée(s) avec succès !"}), 200
+        create_full_backup_archive(prefix="pre_restore_safety_snapshot")
     except Exception as e:
-        return jsonify({'error': f"Erreur lors de l'import : {str(e)}"}), 400
+        print(f"Safety snapshot error: {e}")
+
+    db_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    os.makedirs(db_dir, exist_ok=True)
+    db_target = os.path.join(db_dir, 'stocks.db')
+
+    restored_items = []
+
+    if not is_upload and isinstance(file_or_path, str):
+        # Local zip file
+        if not os.path.exists(file_or_path):
+            raise Exception("Le fichier de sauvegarde local n'existe pas.")
+            
+        with zipfile.ZipFile(file_or_path, 'r') as zipf:
+            namelist = zipf.namelist()
+            if 'stocks.db' in namelist:
+                db.session.remove()
+                with open(db_target, 'wb') as f_out:
+                    f_out.write(zipf.read('stocks.db'))
+                restored_items.append("Base de données SQLite (stocks.db)")
+            if 'config.json' in namelist:
+                with open(CONFIG_FILE, 'wb') as f_out:
+                    f_out.write(zipf.read('config.json'))
+                restored_items.append("Configuration (config.json)")
+            if not restored_items and 'data_export.json' in namelist:
+                data = json.loads(zipf.read('data_export.json').decode('utf-8'))
+                _restore_from_json_dict(data)
+                restored_items.append("Données depuis export JSON")
+
+    elif is_upload:
+        # FileStorage object from request.files
+        file = file_or_path
+        filename = file.filename.lower()
+        if filename.endswith('.zip'):
+            zip_bytes = io.BytesIO(file.read())
+            with zipfile.ZipFile(zip_bytes, 'r') as zipf:
+                namelist = zipf.namelist()
+                if 'stocks.db' in namelist:
+                    db.session.remove()
+                    with open(db_target, 'wb') as f_out:
+                        f_out.write(zipf.read('stocks.db'))
+                    restored_items.append("Base de données SQLite (stocks.db)")
+                if 'config.json' in namelist:
+                    with open(CONFIG_FILE, 'wb') as f_out:
+                        f_out.write(zipf.read('config.json'))
+                    restored_items.append("Configuration (config.json)")
+                if not restored_items and 'data_export.json' in namelist:
+                    data = json.loads(zipf.read('data_export.json').decode('utf-8'))
+                    _restore_from_json_dict(data)
+                    restored_items.append("Données depuis export JSON")
+
+        elif filename.endswith('.db') or filename.endswith('.sqlite') or filename.endswith('.sqlite3'):
+            db.session.remove()
+            file.save(db_target)
+            restored_items.append("Base de données SQLite (.db)")
+
+        elif filename.endswith('.json'):
+            content = file.read().decode('utf-8')
+            data = json.loads(content)
+            _restore_from_json_dict(data)
+            restored_items.append("Données JSON")
+        else:
+            raise Exception("Format de fichier non supporté. Utilisez une archive .zip, un fichier .db ou .json")
+
+    # Clear memory caches
+    MARKET_CACHE.clear()
+    PORTFOLIO_NEWS_CACHE['news'] = []
+    
+    # Run migration check on restored database
+    migrate_db()
+    
+    return restored_items
+
+@app.route('/api/backup/download', methods=['GET'])
+def download_backup():
+    """Create a full zip backup and trigger browser download."""
+    try:
+        zip_path, filename, metadata = create_full_backup_archive(prefix="bourse_backup")
+        return send_file(
+            zip_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/zip'
+        )
+    except Exception as e:
+        return jsonify({'error': f"Erreur lors de la création de la sauvegarde : {str(e)}"}), 500
+
+@app.route('/api/backup/create-snapshot', methods=['POST'])
+def create_snapshot():
+    """Create a local timestamped snapshot stored in the backups/ folder."""
+    try:
+        zip_path, filename, metadata = create_full_backup_archive(prefix="bourse_snapshot")
+        return jsonify({
+            'success': True,
+            'filename': filename,
+            'message': f"Point de restauration créé avec succès ({metadata['stocks_count']} positions) !",
+            'metadata': metadata
+        }), 201
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Erreur lors de la création du point de restauration : {str(e)}"}), 500
+
+@app.route('/api/backup/list', methods=['GET'])
+def list_backups():
+    """List all available local backup files in backups/ directory."""
+    backups = []
+    if os.path.exists(BACKUP_DIR):
+        for f in os.listdir(BACKUP_DIR):
+            if f.endswith('.zip'):
+                fpath = os.path.join(BACKUP_DIR, f)
+                stat = os.stat(fpath)
+                size_kb = round(stat.st_size / 1024, 1)
+                size_formatted = f"{round(size_kb / 1024, 2)} Mo" if size_kb > 1024 else f"{size_kb} Ko"
+                btype = 'safety' if 'safety_snapshot' in f else ('manual' if ('bourse_snapshot' in f or 'cli_backup' in f) else 'auto')
+
+                item = {
+                    'filename': f,
+                    'size_bytes': stat.st_size,
+                    'size_kb': size_kb,
+                    'size_formatted': size_formatted,
+                    'created_at': datetime.fromtimestamp(stat.st_mtime).strftime('%d/%m/%Y %H:%M:%S'),
+                    'mtime': stat.st_mtime,
+                    'type': btype,
+                    'is_safety_snapshot': btype == 'safety',
+                    'stocks_count': None
+                }
+                # Try to peek metadata from zip
+                try:
+                    with zipfile.ZipFile(fpath, 'r') as zf:
+                        if 'backup_metadata.json' in zf.namelist():
+                            meta = json.loads(zf.read('backup_metadata.json').decode('utf-8'))
+                            item['stocks_count'] = meta.get('stocks_count')
+                            item['created_at'] = meta.get('created_at', item['created_at'])
+                except Exception:
+                    pass
+                backups.append(item)
+
+    # Sort descending by modification time
+    backups.sort(key=lambda x: x['mtime'], reverse=True)
+    return jsonify({'success': True, 'backups': backups, 'count': len(backups)})
+
+@app.route('/api/backup/restore', methods=['POST'])
+def restore_backup():
+    """Restore entire database and config from uploaded .zip, .db, or .json file."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'Aucun fichier sélectionné.'}), 400
+        
+        file = request.files['file']
+        if not file or not file.filename:
+            return jsonify({'success': False, 'error': 'Nom de fichier invalide.'}), 400
+
+        restored_items = restore_from_archive_file(file, is_upload=True)
+        items_str = ", ".join(restored_items) if restored_items else "Données"
+        return jsonify({
+            'success': True,
+            'message': f"Restauration réussie ({items_str}) ! Vos données sont prêtes.",
+            'restored_items': restored_items
+        }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Erreur de restauration : {str(e)}"}), 500
+
+@app.route('/api/backup/restore-local/<path:filename>', methods=['POST'])
+def restore_local_backup(filename):
+    """Restore from an existing local backup archive in the backups/ folder."""
+    try:
+        # Sanitize filename
+        safe_filename = os.path.basename(filename)
+        local_path = os.path.join(BACKUP_DIR, safe_filename)
+        if not os.path.exists(local_path):
+            return jsonify({'success': False, 'error': 'Fichier de sauvegarde introuvable.'}), 404
+
+        restored_items = restore_from_archive_file(local_path, is_upload=False)
+        items_str = ", ".join(restored_items) if restored_items else "Données"
+        return jsonify({
+            'success': True,
+            'message': f"Point de restauration '{safe_filename}' restauré avec succès ({items_str}) !",
+            'restored_items': restored_items
+        }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Erreur lors de la restauration locale : {str(e)}"}), 500
+
+@app.route('/api/backup/delete-local/<path:filename>', methods=['DELETE'])
+def delete_local_backup(filename):
+    """Delete a local backup archive from backups/."""
+    try:
+        safe_filename = os.path.basename(filename)
+        local_path = os.path.join(BACKUP_DIR, safe_filename)
+        if os.path.exists(local_path):
+            os.remove(local_path)
+            return jsonify({'success': True, 'message': f"Sauvegarde '{safe_filename}' supprimée."})
+        return jsonify({'success': False, 'error': 'Fichier non trouvé.'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Erreur de suppression : {str(e)}"}), 500
+
+@app.route('/api/backup/download-local/<path:filename>', methods=['GET'])
+def download_local_backup(filename):
+    """Download an existing local backup file."""
+    safe_filename = os.path.basename(filename)
+    local_path = os.path.join(BACKUP_DIR, safe_filename)
+    if os.path.exists(local_path):
+        return send_file(
+            local_path,
+            as_attachment=True,
+            download_name=safe_filename,
+            mimetype='application/zip'
+        )
+    return jsonify({'error': 'Fichier introuvable.'}), 404
 
 if __name__ == '__main__':
     app.run(debug=True, port=3000)

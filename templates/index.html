@@ -489,38 +489,119 @@
             </div>
         </div>
 
-        <!-- MODAL: Import / Export -->
+        <!-- MODAL: Sauvegarde & Restauration -->
         <div id="import-export-modal" class="modal">
-            <div class="modal-content glass-panel">
+            <div class="modal-content glass-panel" style="max-width: 680px;">
                 <div class="modal-header">
-                    <h2><i class="fa-solid fa-file-arrow-up gradient-text"></i> Sauvegarde & Importation</h2>
+                    <h2><i class="fa-solid fa-shield-halved gradient-text"></i> Sauvegarde & Restauration</h2>
                     <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="modal-body">
-                    <div class="io-section">
-                        <h3><i class="fa-solid fa-download"></i> Exporter mon portefeuille</h3>
-                        <p class="settings-desc">Téléchargez une copie complète de vos positions pour vos archives ou tableurs.</p>
-                        <div class="io-buttons-row">
-                            <a href="/api/stocks/export?format=csv" class="btn btn-secondary" download>
-                                <i class="fa-solid fa-file-csv"></i> Export CSV
-                            </a>
-                            <a href="/api/stocks/export?format=json" class="btn btn-secondary" download>
-                                <i class="fa-solid fa-file-code"></i> Export JSON
-                            </a>
+                    <!-- Tabs Navigation -->
+                    <div class="backup-nav-tabs">
+                        <button type="button" class="backup-tab-btn active" data-tab="tab-backup">
+                            <i class="fa-solid fa-box-archive"></i> Sauvegarde
+                        </button>
+                        <button type="button" class="backup-tab-btn" data-tab="tab-restore">
+                            <i class="fa-solid fa-rotate-left"></i> Restaurer
+                        </button>
+                        <button type="button" class="backup-tab-btn" data-tab="tab-snapshots">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Points Locaux
+                        </button>
+                        <button type="button" class="backup-tab-btn" data-tab="tab-import">
+                            <i class="fa-solid fa-file-import"></i> Importer
+                        </button>
+                    </div>
+
+                    <!-- TAB 1: Sauvegarde Complète -->
+                    <div id="tab-backup" class="backup-tab-pane active">
+                        <div class="backup-hero-card">
+                            <div class="backup-hero-icon">
+                                <i class="fa-solid fa-file-zipper"></i>
+                            </div>
+                            <div class="backup-hero-content">
+                                <h3>Archive Complète (.ZIP)</h3>
+                                <p>Téléchargez une archive contenant l'intégralité de vos données : base SQLite (<code>stocks.db</code>), vos paramètres (<code>config.json</code>) et un export JSON universel.</p>
+                                <div class="backup-hero-actions">
+                                    <a href="/api/backup/download" class="btn btn-gradient" download>
+                                        <i class="fa-solid fa-download"></i> Télécharger l'archive ZIP
+                                    </a>
+                                    <button type="button" id="create-local-snapshot-btn" class="btn btn-secondary">
+                                        <i class="fa-solid fa-bookmark"></i> Créer un point local
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="io-divider"></div>
+
+                        <div class="io-section">
+                            <h4><i class="fa-solid fa-file-export"></i> Exports simples (Positions seules)</h4>
+                            <p class="settings-desc">Pour ouvrir votre portefeuille dans Excel, Google Sheets ou une autre application :</p>
+                            <div class="io-buttons-row">
+                                <a href="/api/stocks/export?format=csv" class="btn btn-secondary" download>
+                                    <i class="fa-solid fa-file-csv"></i> Format CSV
+                                </a>
+                                <a href="/api/stocks/export?format=json" class="btn btn-secondary" download>
+                                    <i class="fa-solid fa-file-code"></i> Format JSON
+                                </a>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="io-divider"></div>
+                    <!-- TAB 2: Restaurer une Sauvegarde -->
+                    <div id="tab-restore" class="backup-tab-pane">
+                        <div class="backup-alert-banner">
+                            <i class="fa-solid fa-shield-cat"></i>
+                            <div>
+                                <strong>Sécurité automatique :</strong> Un point de restauration d'urgence (snapshot) est automatiquement créé avant toute opération de restauration.
+                            </div>
+                        </div>
 
-                    <div class="io-section">
-                        <h3><i class="fa-solid fa-upload"></i> Importer un fichier</h3>
-                        <p class="settings-desc">Sélectionnez un fichier CSV ou JSON contenant vos positions boursières.</p>
-                        <form id="import-form">
-                            <input type="file" id="import-file-input" accept=".csv,.json" required style="margin-bottom: 1rem;">
-                            <button type="submit" class="btn btn-gradient w-100">
-                                <i class="fa-solid fa-cloud-arrow-up"></i> Lancer l'importation
+                        <form id="restore-upload-form" class="restore-form">
+                            <p class="settings-desc">Formats acceptés : <strong>Archive ZIP (.zip)</strong>, <strong>Base SQLite (.db, .sqlite)</strong>, ou <strong>Export JSON (.json)</strong>.</p>
+                            
+                            <div class="file-drop-zone" id="restore-drop-zone">
+                                <i class="fa-solid fa-cloud-arrow-up drop-zone-icon"></i>
+                                <span class="drop-zone-text" id="restore-file-label">Glissez-déposez votre fichier de sauvegarde ici ou cliquez pour parcourir</span>
+                                <input type="file" id="restore-file-input" accept=".zip,.db,.sqlite,.json" class="file-input-hidden" required>
+                            </div>
+
+                            <button type="submit" id="submit-restore-btn" class="btn btn-danger w-100" style="margin-top: 1.25rem;">
+                                <i class="fa-solid fa-rotate-left"></i> Restaurer à partir de ce fichier
                             </button>
                         </form>
+                    </div>
+
+                    <!-- TAB 3: Points de Restauration Locaux -->
+                    <div id="tab-snapshots" class="backup-tab-pane">
+                        <div class="snapshots-header-bar">
+                            <p class="settings-desc" style="margin: 0;">Snapshots enregistrés sur votre machine dans le dossier <code>backups/</code>.</p>
+                            <button type="button" id="refresh-snapshots-btn" class="btn btn-secondary btn-sm">
+                                <i class="fa-solid fa-arrows-rotate"></i> Actualiser
+                            </button>
+                        </div>
+                        <div id="snapshots-list-container" class="snapshots-list-container">
+                            <div class="loading-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement des sauvegardes...</div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: Importation de Positions -->
+                    <div id="tab-import" class="backup-tab-pane">
+                        <div class="io-section">
+                            <h3><i class="fa-solid fa-upload"></i> Importer des positions</h3>
+                            <p class="settings-desc">Ajoutez ou fusionnez des positions boursières à partir d'un fichier CSV ou JSON sans écraser votre configuration existante.</p>
+                            <form id="import-form">
+                                <div class="file-drop-zone" id="import-drop-zone" style="margin-bottom: 1rem;">
+                                    <i class="fa-solid fa-file-circle-plus drop-zone-icon"></i>
+                                    <span class="drop-zone-text" id="import-file-label">Sélectionner un fichier CSV ou JSON</span>
+                                    <input type="file" id="import-file-input" accept=".csv,.json" class="file-input-hidden" required>
+                                </div>
+                                <button type="submit" class="btn btn-gradient w-100">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> Lancer l'importation
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>

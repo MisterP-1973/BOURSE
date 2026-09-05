@@ -326,16 +326,281 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    importExportBtn.addEventListener('click', () => {
-        importExportModal.classList.add('active');
+    // --- BACKUP & RESTORE MODAL SYSTEM ---
+    const backupTabBtns = document.querySelectorAll('.backup-tab-btn');
+    const backupTabPanes = document.querySelectorAll('.backup-tab-pane');
+    const restoreUploadForm = document.getElementById('restore-upload-form');
+    const restoreFileInput = document.getElementById('restore-file-input');
+    const restoreFileLabel = document.getElementById('restore-file-label');
+    const restoreDropZone = document.getElementById('restore-drop-zone');
+    const importFileInput = document.getElementById('import-file-input');
+    const importFileLabel = document.getElementById('import-file-label');
+    const importDropZone = document.getElementById('import-drop-zone');
+    const createSnapshotBtn = document.getElementById('create-local-snapshot-btn');
+    const refreshSnapshotsBtn = document.getElementById('refresh-snapshots-btn');
+    const snapshotsContainer = document.getElementById('snapshots-list-container');
+
+    // Tab switching
+    backupTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-tab');
+            backupTabBtns.forEach(b => b.classList.remove('active'));
+            backupTabPanes.forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            const targetPane = document.getElementById(targetId);
+            if (targetPane) targetPane.classList.add('active');
+            if (targetId === 'tab-snapshots') {
+                loadBackupSnapshots();
+            }
+        });
     });
 
+    // Open Modal
+    importExportBtn.addEventListener('click', () => {
+        importExportModal.classList.add('active');
+        // Default to active tab or load snapshots if on snapshots tab
+        const activeTab = document.querySelector('.backup-tab-btn.active');
+        if (activeTab && activeTab.getAttribute('data-tab') === 'tab-snapshots') {
+            loadBackupSnapshots();
+        }
+    });
+
+    // File Drop Zone Helpers
+    function setupDropZone(dropZone, fileInput, labelElement, defaultText) {
+        if (!dropZone || !fileInput) return;
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            });
+        });
+        dropZone.addEventListener('drop', (e) => {
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                if (labelElement) labelElement.innerHTML = `<strong>Fichier sélectionné :</strong> ${e.dataTransfer.files[0].name}`;
+            }
+        });
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length && labelElement) {
+                labelElement.innerHTML = `<strong>Fichier sélectionné :</strong> ${fileInput.files[0].name}`;
+            } else if (labelElement) {
+                labelElement.innerText = defaultText;
+            }
+        });
+    }
+
+    setupDropZone(restoreDropZone, restoreFileInput, restoreFileLabel, "Glissez-déposez votre fichier de sauvegarde ici ou cliquez pour parcourir");
+    setupDropZone(importDropZone, importFileInput, importFileLabel, "Sélectionner un fichier CSV ou JSON");
+
+    // Load Local Snapshots
+    async function loadBackupSnapshots() {
+        if (!snapshotsContainer) return;
+        snapshotsContainer.innerHTML = '<div class="loading-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement des sauvegardes...</div>';
+        try {
+            const res = await fetch('/api/backup/list');
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                snapshotsContainer.innerHTML = `<div class="empty-state" style="padding:1.5rem;"><p style="color:#ef4444;">Erreur: ${data.error || 'Impossible de lister les sauvegardes'}</p></div>`;
+                return;
+            }
+
+            if (!data.backups || data.backups.length === 0) {
+                snapshotsContainer.innerHTML = `
+                    <div class="empty-state" style="padding: 2rem 1rem; text-align: center;">
+                        <i class="fa-solid fa-box-open" style="font-size: 2rem; color: var(--text-secondary); margin-bottom: 0.5rem;"></i>
+                        <p style="color: var(--text-secondary); margin: 0;">Aucun point de restauration local pour l'instant.</p>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Cliquez sur 'Créer un point local' pour en enregistrer un.</p>
+                    </div>`;
+                return;
+            }
+
+            snapshotsContainer.innerHTML = data.backups.map(b => {
+                let badgeClass = 'badge-auto';
+                let badgeLabel = 'Auto';
+                if (b.type === 'safety') {
+                    badgeClass = 'badge-safety';
+                    badgeLabel = 'Sécurité';
+                } else if (b.type === 'manual') {
+                    badgeClass = 'badge-manual';
+                    badgeLabel = 'Manuel';
+                }
+
+                return `
+                    <div class="snapshot-item" data-filename="${b.filename}">
+                        <div class="snapshot-info">
+                            <div class="snapshot-name">
+                                <i class="fa-solid fa-file-zipper" style="color: #8b5cf6;"></i>
+                                <span>${b.filename}</span>
+                                <span class="snapshot-badge ${badgeClass}">${badgeLabel}</span>
+                            </div>
+                            <div class="snapshot-meta">
+                                <span><i class="fa-regular fa-clock"></i> ${b.created_at}</span>
+                                <span><i class="fa-solid fa-hard-drive"></i> ${b.size_formatted}</span>
+                            </div>
+                        </div>
+                        <div class="snapshot-actions">
+                            <button type="button" class="btn btn-secondary btn-icon-sm restore-snapshot-btn" title="Restaurer ce point" data-filename="${b.filename}">
+                                <i class="fa-solid fa-rotate-left"></i> Restaurer
+                            </button>
+                            <a href="/api/backup/download-local/${encodeURIComponent(b.filename)}" class="btn btn-secondary btn-icon-sm" title="Télécharger">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
+                            <button type="button" class="btn btn-danger btn-icon-sm delete-snapshot-btn" title="Supprimer" data-filename="${b.filename}">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Attach listeners to snapshot action buttons
+            snapshotsContainer.querySelectorAll('.restore-snapshot-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const fname = btn.getAttribute('data-filename');
+                    if (!confirm(`Restaurer le point "${fname}" ?\n\nVos données actuelles seront remplacées. Un point de sécurité automatique sera créé avant la restauration.`)) {
+                        return;
+                    }
+
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+                    try {
+                        const r = await fetch(`/api/backup/restore-local/${encodeURIComponent(fname)}`, { method: 'POST' });
+                        const resData = await r.json();
+                        if (r.ok && resData.success) {
+                            showToast(resData.message || 'Restauration réussie !', 'success');
+                            importExportModal.classList.remove('active');
+                            await loadSettings();
+                            await loadStocks();
+                        } else {
+                            showToast(resData.error || 'Erreur lors de la restauration.', 'error');
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Restaurer';
+                        }
+                    } catch(e) {
+                        showToast('Erreur réseau lors de la restauration.', 'error');
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Restaurer';
+                    }
+                });
+            });
+
+            snapshotsContainer.querySelectorAll('.delete-snapshot-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const fname = btn.getAttribute('data-filename');
+                    if (!confirm(`Supprimer définitivement la sauvegarde "${fname}" ?`)) {
+                        return;
+                    }
+                    try {
+                        const r = await fetch(`/api/backup/delete-local/${encodeURIComponent(fname)}`, { method: 'DELETE' });
+                        const resData = await r.json();
+                        if (r.ok && resData.success) {
+                            showToast('Sauvegarde supprimée.', 'info');
+                            loadBackupSnapshots();
+                        } else {
+                            showToast(resData.error || 'Erreur lors de la suppression.', 'error');
+                        }
+                    } catch(e) {
+                        showToast('Erreur réseau.', 'error');
+                    }
+                });
+            });
+
+        } catch(err) {
+            snapshotsContainer.innerHTML = `<div class="empty-state" style="padding:1.5rem;"><p style="color:#ef4444;">Erreur réseau lors de la récupération des sauvegardes.</p></div>`;
+        }
+    }
+
+    // Create Snapshot button handler
+    if (createSnapshotBtn) {
+        createSnapshotBtn.addEventListener('click', async () => {
+            createSnapshotBtn.disabled = true;
+            createSnapshotBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Création...';
+            try {
+                const res = await fetch('/api/backup/create-snapshot', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast(data.message || 'Point de restauration créé avec succès !', 'success');
+                    loadBackupSnapshots();
+                } else {
+                    showToast(data.error || 'Erreur lors de la création du point.', 'error');
+                }
+            } catch(e) {
+                showToast('Erreur réseau lors de la création de la sauvegarde.', 'error');
+            } finally {
+                createSnapshotBtn.disabled = false;
+                createSnapshotBtn.innerHTML = '<i class="fa-solid fa-bookmark"></i> Créer un point local';
+            }
+        });
+    }
+
+    if (refreshSnapshotsBtn) {
+        refreshSnapshotsBtn.addEventListener('click', loadBackupSnapshots);
+    }
+
+    // Restore Upload Form Handler
+    if (restoreUploadForm) {
+        restoreUploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!restoreFileInput.files.length) {
+                showToast('Veuillez sélectionner un fichier à restaurer.', 'warning');
+                return;
+            }
+
+            const fileName = restoreFileInput.files[0].name;
+            if (!confirm(`Confirmez-vous la restauration à partir de "${fileName}" ?\n\nVos données actuelles seront remplacées. Un point de sécurité automatique sera créé avant d'appliquer les modifications.`)) {
+                return;
+            }
+
+            const submitBtn = document.getElementById('submit-restore-btn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Restauration en cours...';
+            }
+
+            const formData = new FormData();
+            formData.append('file', restoreFileInput.files[0]);
+
+            try {
+                const res = await fetch('/api/backup/restore', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    importExportModal.classList.remove('active');
+                    restoreUploadForm.reset();
+                    if (restoreFileLabel) {
+                        restoreFileLabel.innerText = "Glissez-déposez votre fichier de sauvegarde ici ou cliquez pour parcourir";
+                    }
+                    showToast(data.message || 'Restauration terminée avec succès !', 'success');
+                    await loadSettings();
+                    await loadStocks();
+                } else {
+                    showToast(data.error || 'Erreur lors de la restauration.', 'error');
+                }
+            } catch(err) {
+                showToast('Erreur réseau lors de la restauration.', 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Restaurer à partir de ce fichier';
+                }
+            }
+        });
+    }
+
+    // Import Form Handler (Positions only)
     importForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const fileInput = document.getElementById('import-file-input');
-        if (!fileInput.files.length) return;
+        if (!importFileInput.files.length) return;
         const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
+        formData.append('file', importFileInput.files[0]);
 
         try {
             const res = await fetch('/api/stocks/import', {
@@ -346,6 +611,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 importExportModal.classList.remove('active');
                 importForm.reset();
+                if (importFileLabel) {
+                    importFileLabel.innerText = "Sélectionner un fichier CSV ou JSON";
+                }
                 showToast(data.message || 'Positions importées !', 'success');
                 loadStocks();
             } else {

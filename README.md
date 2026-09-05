@@ -25,6 +25,7 @@
 | 🖨️ **Impression PDF / A4** | Impression soignée de l'inventaire complet du portefeuille, de l'audit global IA et des analyses de titres |
 | ⚡ **Recommandations Directes & Batch IA** | Consensus analystes Wall Street en direct et actualisation automatique de tous les avis IA en 1 clic |
 | 🔍 **Recherche, Filtres & Tris Rapides** | Filtre instantané par texte, type d'actif (Action, ETF, Fonds, Crypto) et tri (Valeur, Plus-value %, Perf du jour) |
+| 🛡️ **Sauvegarde & Restauration Complète** | Archives ZIP intégrales (Base SQLite `stocks.db` + `config.json` + Export JSON), snapshots de sécurité automatiques, gestionnaire local et scripts Windows (`backup.bat`, `restore.bat`) |
 | 💾 **Import / Export CSV & JSON** | Sauvegarde locale complète et importation rapide de vos positions |
 | 📱 **Vue Grille & Tableau Liste** | Deux modes d'affichage modernes glassmorphism avec mémorisation de vos préférences |
 
@@ -83,6 +84,20 @@ Ouvrez votre navigateur sur **http://localhost:3000**
 
 ---
 
+## 🛡️ Sauvegarde & Restauration
+
+L'application offre une protection maximale contre les pertes de données :
+
+- **Via l'interface Web (icône bouclier/sauvegarde) :**
+  - **Sauvegarde Complète :** Téléchargez en 1 clic une archive `.zip` contenant votre base SQLite, votre configuration et un export JSON universel.
+  - **Points de Restauration Locaux (Snapshots) :** Créez des points d'instantanés locaux sur votre machine dans le dossier `backups/`, téléchargez-les ou restaurez-les en 1 clic.
+  - **Restauration Sécurisée :** Glissez-déposez une archive `.zip`, un fichier `.db` ou un fichier `.json`. Un snapshot de sécurité d'urgence (`pre_restore_safety_snapshot`) est créé automatiquement avant d'appliquer toute restauration.
+- **En ligne de commande / scripts Windows :**
+  - `backup.bat` : Crée immédiatement un point de sauvegarde `.zip` complet dans `backups/`.
+  - `restore.bat` : Menu interactif pour sélectionner et restaurer un point de sauvegarde existant en toute sécurité.
+
+---
+
 ## ⚙️ Configuration
 
 ### Clé API Gemini (pour l'analyse IA)
@@ -100,17 +115,20 @@ La clé est stockée localement dans `config.json` (non versionné).
 
 ```
 BOURSE/
-├── app.py                  # Application Flask (routes, modèles, logique)
+├── app.py                  # Application Flask (routes, modèles, sauvegarde/restauration)
 ├── requirements.txt        # Dépendances Python
 ├── start.bat               # Script de lancement rapide Windows
-├── .gitignore
-├── README.md
+├── backup.bat              # Script de sauvegarde rapide Windows
+├── restore.bat             # Script de restauration interactive Windows
+├── .gitignore              # Exclusion des clés API, bases de données et sauvegardes
+├── README.md               # Documentation générale
 ├── MANUEL.md               # Manuel utilisateur détaillé
+├── backups/                # Dossier local des snapshots ZIP (non versionné)
 ├── static/
 │   ├── css/
-│   │   └── style.css       # Design glassmorphism dark
+│   │   └── style.css       # Design glassmorphism dark & styles sauvegarde
 │   └── js/
-│       └── main.js         # Logique frontend (search, cartes, modals, IA)
+│       └── main.js         # Logique frontend (backup, restore, search, cartes, IA)
 └── templates/
     └── index.html          # Template Jinja2 principal
 ```
