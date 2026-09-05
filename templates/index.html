@@ -320,26 +320,69 @@
 
         <!-- MODAL: Settings -->
         <div id="settings-modal" class="modal {% if not has_api_key %}active{% endif %}">
-            <div class="modal-content glass-panel">
+            <div class="modal-content glass-panel" style="max-width: 580px;">
                 <div class="modal-header">
-                    <h2><i class="fa-solid fa-robot gradient-text"></i> Paramètres & IA Gemini</h2>
+                    <h2><i class="fa-solid fa-robot gradient-text"></i> Paramètres & Profil Conseiller</h2>
                     <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="modal-body">
                     <p class="settings-desc">
-                        Pour bénéficier des analyses de titres et de l'audit global du portefeuille, renseignez votre clé gratuite <strong>Google Gemini API</strong>.
-                        <br><br>
-                        1. Rendez-vous sur <a href="https://aistudio.google.com/app/apikey" target="_blank" class="accent-link">Google AI Studio <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.<br>
-                        2. Créez une clé d'API gratuite.<br>
-                        3. Enregistrez-la ci-dessous.
+                        Pour bénéficier des analyses sur-mesure et de l'audit IA, renseignez votre clé <a href="https://aistudio.google.com/app/apikey" target="_blank" class="accent-link">Google Gemini API <i class="fa-solid fa-arrow-up-right-from-square"></i></a> et configurez votre profil d'investisseur.
                     </p>
                     <form id="settings-form">
                         <div class="form-group">
-                            <label for="api-key">Clé API Google Gemini</label>
+                            <label for="api-key"><i class="fa-solid fa-key" style="color: #a855f7;"></i> Clé API Google Gemini</label>
                             <input type="password" id="api-key" placeholder="AIzaSy..." required>
                         </div>
-                        <div class="form-group">
-                            <label for="setting-ref-currency">Devise de référence par défaut</label>
+                        
+                        <div class="settings-section-divider">
+                            <span><i class="fa-solid fa-user-gear"></i> Profil d'Investisseur & Stratégie</span>
+                        </div>
+
+                        <div class="form-row-2col">
+                            <div class="form-group">
+                                <label for="setting-risk-profile"><i class="fa-solid fa-shield-halved"></i> Profil de Risque</label>
+                                <select id="setting-risk-profile">
+                                    <option value="prudent">🛡️ Prudent (Faible risque / Dividendes)</option>
+                                    <option value="balanced" selected>⚖️ Équilibré (Mix Croissance & Rendement)</option>
+                                    <option value="dynamic">🚀 Dynamique (Croissance / Volatilité)</option>
+                                    <option value="aggressive">⚡ Agressif / Spéculatif (Crypto & Alpha)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="setting-investment-horizon"><i class="fa-solid fa-clock-rotate-left"></i> Horizon de Placement</label>
+                                <select id="setting-investment-horizon">
+                                    <option value="short_term">⏱️ Court terme (&lt; 6 mois / Swing)</option>
+                                    <option value="medium_term">📅 Moyen terme (1 à 3 ans)</option>
+                                    <option value="long_term" selected>🏛️ Long terme (5+ ans / DCA / Rente)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row-2col">
+                            <div class="form-group">
+                                <label for="setting-investment-goal"><i class="fa-solid fa-bullseye"></i> Objectif Principal</label>
+                                <select id="setting-investment-goal">
+                                    <option value="growth">📈 Croissance du capital (Plus-values)</option>
+                                    <option value="income">💰 Revenus passifs (Dividendes / Staking)</option>
+                                    <option value="capital_preservation">🛡️ Préservation du capital</option>
+                                    <option value="balanced" selected>⚖️ Équilibré (Mixte)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="setting-max-weight"><i class="fa-solid fa-chart-pie"></i> Poids Max par Ligne</label>
+                                <select id="setting-max-weight">
+                                    <option value="5">5% (Diversification maximale)</option>
+                                    <option value="10">10% (Diversification forte)</option>
+                                    <option value="15" selected>15% (Équilibré - Défaut)</option>
+                                    <option value="20">20% (Portefeuille concentré)</option>
+                                    <option value="30">30% (Très concentré)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 0.5rem;">
+                            <label for="setting-ref-currency"><i class="fa-solid fa-coins"></i> Devise de référence globale</label>
                             <select id="setting-ref-currency">
                                 <option value="CHF">CHF (Franc Suisse)</option>
                                 <option value="EUR">EUR (Euro)</option>
@@ -347,7 +390,9 @@
                                 <option value="GBP">GBP (Livre Sterling)</option>
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-gradient w-100">Enregistrer les paramètres</button>
+                        <button type="submit" class="btn btn-gradient w-100" style="margin-top: 1rem;">
+                            <i class="fa-solid fa-floppy-disk"></i> Enregistrer les paramètres & le profil
+                        </button>
                     </form>
                 </div>
             </div>
@@ -357,7 +402,7 @@
         <div id="ai-modal" class="modal">
             <div class="modal-content glass-panel modal-lg">
                 <div class="modal-header">
-                    <h2><i class="fa-solid fa-sparkles gradient-text"></i> Analyse IA : <span id="ai-stock-name"></span></h2>
+                    <h2><i class="fa-solid fa-sparkles gradient-text"></i> Analyse & Recommandation : <span id="ai-stock-name"></span></h2>
                     <div style="display:flex; align-items:center; gap:0.5rem;">
                         <button id="print-stock-ai-btn" class="icon-btn" title="Imprimer cette analyse"><i class="fa-solid fa-print"></i></button>
                         <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
@@ -366,10 +411,16 @@
                 <div class="modal-body">
                     <div id="ai-loading" class="ai-loading">
                         <div class="pulse-ring"></div>
-                        <p>L'IA analyse les états financiers, actualités et ratios de marché...</p>
+                        <p>L'IA analyse les indicateurs techniques (RSI, MM, MACD), actualités, ratios et votre profil...</p>
                     </div>
                     <div id="ai-result" class="ai-result hidden">
+                        <!-- Top Summary Badges -->
                         <div class="ai-badge-row" id="ai-rec-badge-row"></div>
+                        
+                        <!-- Live Technical & Money Management Dashboard -->
+                        <div id="ai-tech-dashboard" class="ai-tech-dashboard"></div>
+
+                        <!-- Full Markdown Analysis -->
                         <div class="markdown-content" id="ai-markdown-content"></div>
                     </div>
                 </div>

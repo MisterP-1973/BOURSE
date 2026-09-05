@@ -299,6 +299,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.reference_currency) {
                 document.getElementById('setting-ref-currency').value = data.reference_currency;
             }
+            if (data.risk_profile) {
+                document.getElementById('setting-risk-profile').value = data.risk_profile;
+            }
+            if (data.investment_horizon) {
+                document.getElementById('setting-investment-horizon').value = data.investment_horizon;
+            }
+            if (data.investment_goal) {
+                document.getElementById('setting-investment-goal').value = data.investment_goal;
+            }
+            if (data.max_position_weight) {
+                document.getElementById('setting-max-weight').value = String(data.max_position_weight);
+            }
         } catch (e) {
             console.error(e);
         }
@@ -309,16 +321,28 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const apiKey = document.getElementById('api-key').value;
         const refCurr = document.getElementById('setting-ref-currency').value;
+        const riskProfile = document.getElementById('setting-risk-profile').value;
+        const investmentHorizon = document.getElementById('setting-investment-horizon').value;
+        const investmentGoal = document.getElementById('setting-investment-goal').value;
+        const maxWeight = document.getElementById('setting-max-weight').value;
+
         try {
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ api_key: apiKey, reference_currency: refCurr })
+                body: JSON.stringify({
+                    api_key: apiKey,
+                    reference_currency: refCurr,
+                    risk_profile: riskProfile,
+                    investment_horizon: investmentHorizon,
+                    investment_goal: investmentGoal,
+                    max_position_weight: maxWeight
+                })
             });
             if (res.ok) {
                 settingsModal.classList.remove('active');
                 refCurrencySelect.value = refCurr;
-                showToast('Paramètres enregistrés avec succès !', 'success');
+                showToast('Paramètres & Profil investisseur enregistrés !', 'success');
                 loadStocks();
             }
         } catch(err) {
@@ -1384,6 +1408,8 @@ document.addEventListener('DOMContentLoaded', () => {
         aiLoading.classList.remove('hidden');
         aiResult.classList.add('hidden');
         aiRecBadgeRow.innerHTML = '';
+        const aiTechDashboard = document.getElementById('ai-tech-dashboard');
+        if (aiTechDashboard) aiTechDashboard.innerHTML = '';
         
         try {
             const res = await fetch(`/api/analyze/${id}`, { method: 'POST' });
@@ -1392,6 +1418,71 @@ document.addEventListener('DOMContentLoaded', () => {
             aiResult.classList.remove('hidden');
             
             if (res.ok) {
+                // Render Technical Dashboard & Money Management
+                const t = data.technical;
+                const prof = data.profile || {};
+                const w = data.weight_info || {};
+
+                if (aiTechDashboard && t && t.available) {
+                    const rsiColor = t.rsi_color || 'blue';
+                    const trendColor = t.trend_color || 'blue';
+                    const macdColor = t.macd_color || 'blue';
+
+                    aiTechDashboard.innerHTML = `
+                        <div class="tech-cards-grid">
+                            <div class="tech-kpi-card">
+                                <div class="tech-kpi-label"><i class="fa-solid fa-gauge-high"></i> RSI 14j</div>
+                                <div class="tech-kpi-value">${t.rsi}</div>
+                                <div><span class="tech-badge-pill badge-${rsiColor}">${t.rsi_status}</span></div>
+                            </div>
+                            <div class="tech-kpi-card">
+                                <div class="tech-kpi-label"><i class="fa-solid fa-arrow-trend-up"></i> Tendance MM</div>
+                                <div class="tech-kpi-value" style="font-size:0.85rem;">${t.trend}</div>
+                                <div style="font-size:0.7rem; color:var(--text-secondary);">SMA 50: ${t.sma50} | SMA 200: ${t.sma200 || 'N/D'}</div>
+                            </div>
+                            <div class="tech-kpi-card">
+                                <div class="tech-kpi-label"><i class="fa-solid fa-wave-square"></i> MACD (12,26,9)</div>
+                                <div class="tech-kpi-value" style="font-size:0.85rem;">${t.macd}</div>
+                                <div><span class="tech-badge-pill badge-${macdColor}">${t.macd_status}</span></div>
+                            </div>
+                            <div class="tech-kpi-card">
+                                <div class="tech-kpi-label"><i class="fa-solid fa-chart-line"></i> Supports / Résist.</div>
+                                <div class="tech-kpi-value" style="font-size:0.82rem;">
+                                    <span style="color:#10b981;">S: ${t.support}</span> / <span style="color:#f43f5e;">R: ${t.resistance}</span>
+                                </div>
+                                <div style="font-size:0.7rem; color:var(--text-secondary);">ATR 14: ${t.atr} (${t.atr_pct}%)</div>
+                            </div>
+                        </div>
+
+                        <div class="money-management-card">
+                            <div class="mm-header">
+                                <div style="display:flex; align-items:center; gap:0.5rem;">
+                                    <i class="fa-solid fa-shield-halved" style="color:#818cf8;"></i>
+                                    <span>Money Management & Niveaux Clés Suggérés</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+                                    <span class="profile-tag-pill">Profil: ${prof.risk_profile ? prof.risk_profile.toUpperCase() : 'ÉQUILIBRÉ'}</span>
+                                    ${w.is_overweight ? `<span class="tech-badge-pill badge-rose"><i class="fa-solid fa-triangle-exclamation"></i> Surpondéré (${w.weight_pct}% &gt; ${w.max_allowed_pct}%)</span>` : `<span class="tech-badge-pill badge-emerald">Poids: ${w.weight_pct}% (Max: ${w.max_allowed_pct}%)</span>`}
+                                </div>
+                            </div>
+                            <div class="mm-grid">
+                                <div class="mm-item">
+                                    <span class="mm-item-title">🛑 Stop-Loss Conseillé</span>
+                                    <span class="mm-item-val mm-val-danger">${t.stop_loss} <span class="mm-item-sub">(${t.stop_loss_pct}%)</span></span>
+                                </div>
+                                <div class="mm-item">
+                                    <span class="mm-item-title">🎯 Take-Profit / Cible</span>
+                                    <span class="mm-item-val mm-val-success">${t.take_profit} <span class="mm-item-sub">(+${t.take_profit_pct}%)</span></span>
+                                </div>
+                                <div class="mm-item">
+                                    <span class="mm-item-title">⚖️ Ratio Risque/Rendement</span>
+                                    <span class="mm-item-val mm-val-accent">1 : ${t.risk_reward_ratio}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 let newsSourcesHtml = '';
                 if (data.news_items && data.news_items.length) {
                     newsSourcesHtml = `

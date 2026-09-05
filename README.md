@@ -13,14 +13,16 @@
 ## ✨ Fonctionnalités
 
 | Fonctionnalité | Description |
-|---|---|
+| 🎯 **Profil d'Investisseur & Stratégie Sur-Mesure** | Configuration du profil de risque (*Prudent, Équilibré, Dynamique, Agressif*), horizon (*Court, Moyen, Long terme*), objectif et seuil max par ligne |
+| 📊 **Moteur d'Analyse Technique en Direct** | Calcul en temps réel du RSI (14j), Moyennes Mobiles (SMA 20, 50, 200), Momentum MACD, Volatilité ATR et Supports / Résistances |
+| 🛡️ **Money Management & Niveaux Clés** | Niveaux chiffrés de Stop-Loss protecteur, Take-Profit / Cibles, Ratio Risque/Rendement (R:R) et alertes de surpondération |
 | 🪙 **Support Complet Cryptomonnaies** | Suivi natif Bitcoin, Ethereum, Solana, Altcoins, gestion des fractions décimales et cotations directes |
 | 💱 **Moteur Multi-Devises Réel (Forex)** | Conversion instantanée des positions en devise de référence (CHF, EUR, USD, GBP) via taux de change en direct |
 | ⚡ **Performance & Cache Parallélisé** | Chargement instantané (< 1s) grâce aux threads parallèles et à la mise en cache mémoire (5 min) |
 | 📈 **Graphiques Interactifs & Sparklines** | Mini-courbes de tendance 7j sur chaque actif et graphique historique interactif (1M, 6M, 1A, 5A) avec Chart.js |
 | 🍩 **Allocation d'Actifs (Donut Chart)** | Visualisation de la répartition du portefeuille par symbole et classe d'actifs |
-| 🤖 **Audit Global IA du Portefeuille** | Diagnostic complet Gemini : score de diversification (0-100), analyse des risques, détection des doublons et rééquilibrage |
-| 🎯 **Analyse IA par Titre Fiabilisée** | Recommandation structurée (ACHETER / CONSERVER / VENDRE) intégrant ratios financiers / on-chain et actualités |
+| 🤖 **Audit Global IA du Portefeuille** | Diagnostic complet Gemini confrontant l'allocation réelle au profil investisseur : score de diversification (0-100), analyse des risques et rééquilibrage |
+| 🎯 **Analyse IA par Titre Fiabilisée** | Recommandation sur-mesure (ACHETER / CONSERVER / VENDRE) intégrant profil, technique, ratios financiers / on-chain et actualités |
 | 💰 **Revenus & Dividendes Annuels** | Calcul automatique du cash flow annuel estimé en dividendes réels |
 | 🖨️ **Impression PDF / A4** | Impression soignée de l'inventaire complet du portefeuille, de l'audit global IA et des analyses de titres |
 | ⚡ **Recommandations Directes & Batch IA** | Consensus analystes Wall Street en direct et actualisation automatique de tous les avis IA en 1 clic |

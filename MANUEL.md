@@ -75,22 +75,39 @@ Ajoutez une action, un ETF, un fonds ou une **cryptomonnaie** en quelques second
 #### Sur chaque position :
 * 📉 **Sparkline 7 jours** : Mini-graphique de tendance intégré sur la carte.
 * 📈 **Graphique Historique Interactif** : Cliquez sur l'icône de graphique pour afficher l'évolution du cours sur **1 Mois, 6 Mois, 1 An et 5 Ans**.
-* 🤖 **Analyse IA Gemini** : 
-  - Pour les actions : analyse des ratios (PER, dividendes, consensus analystes).
-  - Pour les **cryptos** : analyse de la dynamique de marché, volume 24h, market cap, niveaux techniques et actualités crypto (CoinDesk, Cointelegraph, etc.).
-  - Recommandation claire (**ACHETER / CONSERVER / VENDRE**).
+* 🤖 **Analyse IA Sur-Mesure & Indicateurs Techniques en Direct** : 
+  * 📊 **Dashboard Technique** : RSI (14j), Tendance des Moyennes Mobiles (SMA 20, 50, 200), Momentum MACD, Volatilité ATR et Niveaux clés Support/Résistance.
+  * 🛡️ **Money Management** : Stop-Loss protecteur chiffré, Objectif Take-Profit, Ratio Risque/Rendement (R:R) et contrôle du poids dans le portefeuille.
+  * 🎯 **Conseil Personnalisé** : Recommandation calibrée sur votre profil de risque (*Prudent, Équilibré, Dynamique, Agressif*) et votre horizon (*Court, Moyen, Long terme*).
 * ✏️ **Édition inline** : Modifiez quantité, PRU, date ou devise sans supprimer la ligne.
 * 🗑️ **Suppression sécurisée** : Modale moderne de confirmation.
 
 ---
 
+## 🎯 Profil d'Investisseur & Paramètres
+
+En cliquant sur l'icône ⚙️ **Paramètres**, vous pouvez configurer votre profil d'investisseur pour calibrer la sensibilité du conseiller IA :
+* **Profil de Risque** :
+  * 🛡️ *Prudent / Bon père de famille* : Préservation du capital, limitation stricte de la volatilité, focus dividendes solides.
+  * ⚖️ *Équilibré* : Mix équilibré entre valorisation, dividendes et risque modéré (profil par défaut).
+  * 🚀 *Dynamique* : Recherche de croissance, forte tolérance aux fluctuations de marché.
+  * ⚡ *Agressif / Spéculatif* : Recherche de fort alpha, cryptos, actifs à fort beta et opportunités asymétriques.
+* **Horizon de Placement** :
+  * ⏱️ *Court terme (< 6 mois)* : Approche swing, prises de bénéfices rapides, gestion tactique.
+  * 📅 *Moyen terme (1 à 3 ans)* : Suivi des cycles de marché et thématiques sectorielles.
+  * 🏛️ *Long terme (5+ ans)* : Investissement fondamental, DCA, rente et effet boule de neige.
+* **Objectif Principal** : Croissance du capital, Revenus passifs (dividendes/staking), ou Préservation du capital.
+* **Poids Maximum par Ligne** : Seuil d'alerte de sur-concentration (ex: 15% max par ligne).
+
+---
+
 ## 🤖 Audit Global du Portefeuille par l'IA
 
-En cliquant sur **"Audit Global IA"**, Gemini 3.x analyse l'ensemble de votre allocation pour vous délivrer un rapport complet :
-1. 📊 **Score de diversification (0 à 100)** et santé générale.
-2. ⚖️ **Analyse de l'allocation et concentration** (secteurs, zones géographiques, doublons).
-3. 🛡️ **Niveau de risque et résilience** en cas de baisse des marchés.
-4. 💡 **3 à 5 Recommandations concrètes de rééquilibrage**.
+En cliquant sur **"Audit Global IA"**, Gemini 3.x analyse l'ensemble de votre allocation en la confrontant à votre profil :
+1. 📊 **Diagnostic Global & Adéquation au Profil** (Score chiffré de santé 0 à 100 et détection des écarts de risque).
+2. ⚡ **Stratégie Court Terme (1 à 6 mois)** : Gestion des risques, lignes volatiles, allègements et prises de bénéfices opportunes.
+3. 🏛️ **Vision Stratégique Long Terme (3 à 5+ ans)** : Solidité des fondamentaux, dividendes pérennes et résilience.
+4. 🎯 **Plan d'Action & Arbitrages Recommandés** : 3 à 5 recommandations chiffrées de rééquilibrage.
 
 ---
 

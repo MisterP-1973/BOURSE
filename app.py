@@ -12,6 +12,8 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, render_template, request, jsonify, Response, send_file
 from flask_sqlalchemy import SQLAlchemy
+import pandas as pd
+import numpy as np
 import yfinance as yf
 from google import genai
 
@@ -118,12 +120,260 @@ def get_api_key():
 def get_reference_currency():
     return load_config().get('reference_currency', 'CHF')
 
-# --- MARKET DATA & FOREX CACHE ---
+def get_investor_profile():
+    config = load_config()
+    risk_profile = config.get('risk_profile', 'balanced')
+    investment_horizon = config.get('investment_horizon', 'long_term')
+    investment_goal = config.get('investment_goal', 'balanced')
+    try:
+        max_position_weight = float(config.get('max_position_weight', 15))
+    except (ValueError, TypeError):
+        max_position_weight = 15.0
+
+    risk_labels = {
+        'prudent': 'Prudent / Bon père de famille (Priorité préservation du capital, faible volatilité, dividendes pérennes)',
+        'balanced': 'Équilibré (Mix de croissance modérée, dividendes et maîtrise du risque)',
+        'dynamic': 'Dynamique (Recherche de croissance, acceptation de forte volatilité)',
+        'aggressive': 'Agressif / Spéculatif (Recherche de fort alpha/rendement, cryptos, tech à fort beta, opportunités asymétriques)'
+    }
+    horizon_labels = {
+        'short_term': 'Court terme (< 6 mois — Swing trading, prises de gains rapides, gestion tactique)',
+        'medium_term': 'Moyen terme (1 à 3 ans — Cycles de marché, thématiques sectorielles)',
+        'long_term': 'Long terme (5+ ans — Investissement fondamental, DCA, rente et effet boule de neige)'
+    }
+    goal_labels = {
+        'growth': 'Croissance du capital (Maximisation des plus-values latentes)',
+        'income': 'Revenus passifs & Cash-flow (Dividendes, staking crypto)',
+        'capital_preservation': 'Préservation du capital (Protection contre l\'inflation et limitation des drawdowns)',
+        'balanced': 'Équilibré (Mix Croissance & Rendement)'
+    }
+
+    return {
+        'risk_profile': risk_profile,
+        'risk_label': risk_labels.get(risk_profile, risk_labels['balanced']),
+        'investment_horizon': investment_horizon,
+        'horizon_label': horizon_labels.get(investment_horizon, horizon_labels['long_term']),
+        'investment_goal': investment_goal,
+        'goal_label': goal_labels.get(investment_goal, goal_labels['balanced']),
+        'max_position_weight': max_position_weight
+    }
+
+# --- MARKET DATA, TECHNICAL & FOREX CACHE ---
 # Cache structure: { key: { 'data': ..., 'timestamp': float } }
 MARKET_CACHE = {}
+TECHNICAL_CACHE = {}
 FOREX_CACHE = {'rates': {}, 'timestamp': 0}
-CACHE_TTL = 300  # 5 minutes
-FOREX_TTL = 600  # 10 minutes
+CACHE_TTL = 300       # 5 minutes
+TECHNICAL_TTL = 300   # 5 minutes
+FOREX_TTL = 600       # 10 minutes
+
+def compute_technical_indicators(symbol, current_price=None, asset_type='Equity', currency='USD'):
+    """
+    Computes live technical indicators (RSI 14, SMA 20/50/200, MACD, ATR 14, Support/Resistance)
+    and generates Money Management levels (Stop-Loss, Take-Profit, Risk/Reward ratio).
+    """
+    cache_key = f"tech_{symbol.upper()}"
+    now = time.time()
+    if cache_key in TECHNICAL_CACHE:
+        cached = TECHNICAL_CACHE[cache_key]
+        if now - cached['timestamp'] < TECHNICAL_TTL:
+            return cached['data']
+
+    default_res = {
+        'symbol': symbol,
+        'available': False,
+        'rsi': 50.0,
+        'rsi_status': 'Neutre (50)',
+        'rsi_color': 'blue',
+        'sma20': None,
+        'sma50': None,
+        'sma200': None,
+        'trend': 'Neutre',
+        'trend_color': 'blue',
+        'golden_cross': False,
+        'death_cross': False,
+        'macd': 0.0,
+        'macd_signal': 0.0,
+        'macd_hist': 0.0,
+        'macd_status': 'Neutre',
+        'macd_color': 'blue',
+        'atr': 0.0,
+        'atr_pct': 2.5,
+        'support': None,
+        'resistance': None,
+        'stop_loss': None,
+        'stop_loss_pct': -5.0,
+        'take_profit': None,
+        'take_profit_pct': 10.0,
+        'risk_reward_ratio': 2.0
+    }
+
+    try:
+        sym = symbol.strip().upper()
+        if '-' not in sym and asset_type == 'Crypto':
+            sym = normalize_crypto_symbol(sym, 'Crypto', currency)
+
+        ticker = yf.Ticker(sym)
+        df = ticker.history(period="1y")
+        if df.empty or len(df) < 14:
+            df = ticker.history(period="6mo")
+
+        if df.empty or len(df) < 5:
+            TECHNICAL_CACHE[cache_key] = {'data': default_res, 'timestamp': now}
+            return default_res
+
+        cp = float(df['Close'].iloc[-1])
+        if current_price and current_price > 0:
+            cp = float(current_price)
+
+        # 1. RSI (14 days)
+        delta = df['Close'].diff()
+        gain = delta.where(delta > 0, 0.0)
+        loss = -delta.where(delta < 0, 0.0)
+        avg_gain = gain.rolling(window=14, min_periods=14).mean()
+        avg_loss = loss.rolling(window=14, min_periods=14).mean()
+        rs = avg_gain / avg_loss.replace(0, np.nan)
+        rsi_series = 100 - (100 / (1 + rs))
+        rsi_val = float(rsi_series.iloc[-1]) if not pd.isna(rsi_series.iloc[-1]) else 50.0
+        rsi_val = round(rsi_val, 1)
+
+        if rsi_val < 30:
+            rsi_status = f"Survente ({rsi_val}) — Zone d'achat"
+            rsi_color = "emerald"
+        elif rsi_val < 45:
+            rsi_status = f"Repli modéré ({rsi_val})"
+            rsi_color = "teal"
+        elif rsi_val <= 60:
+            rsi_status = f"Neutre ({rsi_val})"
+            rsi_color = "blue"
+        elif rsi_val <= 70:
+            rsi_status = f"Hausse saine ({rsi_val})"
+            rsi_color = "indigo"
+        else:
+            rsi_status = f"Surachat ({rsi_val}) — Prudence / Prise de gains"
+            rsi_color = "rose"
+
+        # 2. Moving Averages & Trend
+        sma20 = float(df['Close'].rolling(20).mean().iloc[-1]) if len(df) >= 20 else cp
+        sma50 = float(df['Close'].rolling(50).mean().iloc[-1]) if len(df) >= 50 else cp
+        sma200 = float(df['Close'].rolling(200).mean().iloc[-1]) if len(df) >= 200 else None
+
+        golden_cross = (sma50 > sma200) if (sma50 and sma200) else False
+        death_cross = (sma50 < sma200) if (sma50 and sma200) else False
+
+        if sma200:
+            if cp > sma20 > sma50 > sma200:
+                trend = "Forte Hausse (Super Bullish)"
+                trend_color = "emerald"
+            elif cp > sma50 > sma200:
+                trend = "Tendance Haussière (Bullish)"
+                trend_color = "teal"
+            elif cp < sma20 < sma50 < sma200:
+                trend = "Forte Baisse (Super Bearish)"
+                trend_color = "rose"
+            elif cp < sma50 < sma200:
+                trend = "Tendance Baissière (Bearish)"
+                trend_color = "rose"
+            else:
+                trend = "Consolidation / Neutre"
+                trend_color = "blue"
+        else:
+            if cp > sma20 > sma50:
+                trend = "Tendance Haussière"
+                trend_color = "emerald"
+            elif cp < sma20 < sma50:
+                trend = "Tendance Baissière"
+                trend_color = "rose"
+            else:
+                trend = "Neutre"
+                trend_color = "blue"
+
+        # 3. MACD (12, 26, 9)
+        ema12 = df['Close'].ewm(span=12, adjust=False).mean()
+        ema26 = df['Close'].ewm(span=26, adjust=False).mean()
+        macd_line = ema12 - ema26
+        signal_line = macd_line.ewm(span=9, adjust=False).mean()
+        m_val = float(macd_line.iloc[-1])
+        s_val = float(signal_line.iloc[-1])
+        h_val = m_val - s_val
+
+        if h_val > 0 and m_val > s_val:
+            macd_status = "Haussier (Momentum positif)"
+            macd_color = "emerald"
+        elif h_val < 0 and m_val < s_val:
+            macd_status = "Baissier (Momentum négatif)"
+            macd_color = "rose"
+        else:
+            macd_status = "Neutre (Croisement proche)"
+            macd_color = "blue"
+
+        # 4. ATR 14 & Volatility
+        h = df['High']
+        l = df['Low']
+        cp_prev = df['Close'].shift(1)
+        tr = pd.concat([h - l, (h - cp_prev).abs(), (l - cp_prev).abs()], axis=1).max(axis=1)
+        atr_val = float(tr.rolling(14).mean().iloc[-1]) if len(df) >= 14 else (cp * 0.02)
+        atr_pct = (atr_val / cp) * 100 if cp > 0 else 2.0
+
+        # 5. Support & Resistance (last 60 trading days)
+        recent_df = df.iloc[-60:] if len(df) >= 60 else df
+        support = float(recent_df['Low'].min())
+        resistance = float(recent_df['High'].max())
+
+        # 6. Money Management (Stop-Loss & Take-Profit)
+        is_crypto = (asset_type == 'Crypto') or ('-USD' in sym) or ('-EUR' in sym) or ('-CHF' in sym)
+        sl_mult = 2.0 if is_crypto else 1.5
+        tp_mult = 4.0 if is_crypto else 3.0
+
+        sl_price = max(0.0001, cp - (sl_mult * atr_val))
+        if support < cp and (cp - support) < (2.5 * atr_val):
+            sl_price = max(0.0001, support * 0.98)
+
+        tp_price = cp + (tp_mult * atr_val)
+        if resistance > cp and (resistance - cp) > (1.5 * atr_val):
+            tp_price = max(tp_price, resistance * 1.02)
+
+        sl_pct = ((sl_price - cp) / cp) * 100 if cp > 0 else -5.0
+        tp_pct = ((tp_price - cp) / cp) * 100 if cp > 0 else 10.0
+        rr_ratio = round(abs(tp_pct / sl_pct), 2) if sl_pct != 0 else 2.0
+
+        res_data = {
+            'symbol': symbol,
+            'available': True,
+            'current_price': round(cp, 4 if is_crypto and cp < 1 else 2),
+            'rsi': rsi_val,
+            'rsi_status': rsi_status,
+            'rsi_color': rsi_color,
+            'sma20': round(sma20, 2),
+            'sma50': round(sma50, 2),
+            'sma200': round(sma200, 2) if sma200 else None,
+            'trend': trend,
+            'trend_color': trend_color,
+            'golden_cross': golden_cross,
+            'death_cross': death_cross,
+            'macd': round(m_val, 2),
+            'macd_signal': round(s_val, 2),
+            'macd_hist': round(h_val, 2),
+            'macd_status': macd_status,
+            'macd_color': macd_color,
+            'atr': round(atr_val, 2),
+            'atr_pct': round(atr_pct, 2),
+            'support': round(support, 2),
+            'resistance': round(resistance, 2),
+            'stop_loss': round(sl_price, 4 if is_crypto and sl_price < 1 else 2),
+            'stop_loss_pct': round(sl_pct, 1),
+            'take_profit': round(tp_price, 4 if is_crypto and tp_price < 1 else 2),
+            'take_profit_pct': round(tp_pct, 1),
+            'risk_reward_ratio': rr_ratio
+        }
+
+        TECHNICAL_CACHE[cache_key] = {'data': res_data, 'timestamp': now}
+        return res_data
+
+    except Exception as e:
+        print(f"Error computing technical indicators for {symbol}: {e}")
+        TECHNICAL_CACHE[cache_key] = {'data': default_res, 'timestamp': now}
+        return default_res
 
 def get_forex_rates():
     """Fetch live exchange rates relative to USD and calculate matrix for USD, EUR, CHF, GBP."""
@@ -730,23 +980,53 @@ def get_stock_history(symbol):
 def handle_settings():
     if request.method == 'GET':
         config = load_config()
+        profile = get_investor_profile()
         return jsonify({
             'has_api_key': bool(get_api_key()),
-            'reference_currency': config.get('reference_currency', 'CHF')
+            'reference_currency': config.get('reference_currency', 'CHF'),
+            'risk_profile': profile['risk_profile'],
+            'investment_horizon': profile['investment_horizon'],
+            'investment_goal': profile['investment_goal'],
+            'max_position_weight': profile['max_position_weight'],
+            'profile_details': profile
         })
     
     data = request.json or {}
     api_key = data.get('api_key')
     ref_curr = data.get('reference_currency')
+    risk_profile = data.get('risk_profile')
+    investment_horizon = data.get('investment_horizon')
+    investment_goal = data.get('investment_goal')
+    max_position_weight = data.get('max_position_weight')
     
     updates = {}
     if api_key is not None:
         updates['gemini_api_key'] = api_key.strip()
     if ref_curr is not None:
         updates['reference_currency'] = ref_curr.upper()
+    if risk_profile is not None:
+        updates['risk_profile'] = risk_profile
+    if investment_horizon is not None:
+        updates['investment_horizon'] = investment_horizon
+    if investment_goal is not None:
+        updates['investment_goal'] = investment_goal
+    if max_position_weight is not None:
+        try:
+            updates['max_position_weight'] = float(max_position_weight)
+        except (ValueError, TypeError):
+            pass
         
     save_config(updates)
-    return jsonify({'message': 'Paramètres enregistrés'}), 200
+    return jsonify({'message': 'Paramètres et profil investisseur enregistrés avec succès !'}), 200
+
+@app.route('/api/stocks/<int:id>/technical', methods=['GET'])
+def get_stock_technical_indicators(id):
+    """Fetch live technical indicators and money management metrics for a stock."""
+    stock = Stock.query.get_or_404(id)
+    details = fetch_single_stock_details(stock.symbol, stock.purchase_price, stock.currency)
+    cp = details.get('current_price', stock.purchase_price)
+    tech = compute_technical_indicators(stock.symbol, cp, stock.asset_type, stock.currency)
+    return jsonify(tech)
 
 # --- GEMINI AI HELPERS & ROUTES ---
 
@@ -886,6 +1166,40 @@ def analyze_stock(id):
     pl_percent = ((current_price - stock.purchase_price) / stock.purchase_price) * 100 if stock.purchase_price > 0 else 0.0
     is_crypto = (stock.asset_type == 'Crypto') or (details.get('quote_type') == 'Crypto') or ('-USD' in stock.symbol)
 
+    # 3. Live Technical Indicators & Money Management
+    tech = compute_technical_indicators(stock.symbol, current_price, stock.asset_type, stock.currency)
+    profile = get_investor_profile()
+
+    # 4. Calculate portfolio weight & concentration
+    all_stocks = Stock.query.all()
+    ref_currency = get_reference_currency()
+    fx_rates = get_forex_rates()
+    total_port_val_ref = 0.0
+    this_stock_val_ref = 0.0
+
+    for s in all_stocks:
+        s_dt = fetch_single_stock_details(s.symbol, s.purchase_price, s.currency)
+        s_cp = s_dt.get('current_price', s.purchase_price)
+        s_val_ref = convert_currency(s.quantity * s_cp, s.currency, ref_currency, fx_rates)
+        total_port_val_ref += s_val_ref
+        if s.id == stock.id:
+            this_stock_val_ref = s_val_ref
+
+    pos_weight = (this_stock_val_ref / total_port_val_ref * 100) if total_port_val_ref > 0 else 100.0
+    is_overweight = pos_weight > profile['max_position_weight']
+
+    # Technical text block for prompt
+    tech_summary = f"""- RSI (14 jours) : {tech['rsi']} ({tech['rsi_status']})
+- Tendance & Moyennes Mobiles : {tech['trend']} | SMA 20: {tech['sma20']} | SMA 50: {tech['sma50']} | SMA 200: {tech['sma200'] or 'N/D'}
+- Signal Croisement : {'Golden Cross (Haussier)' if tech['golden_cross'] else ('Death Cross (Baissier)' if tech['death_cross'] else 'Neutre')}
+- Momentum MACD : {tech['macd_status']} (MACD: {tech['macd']}, Signal: {tech['macd_signal']}, Hist: {tech['macd_hist']})
+- Volatilité ATR (14j) : {tech['atr']} {stock.currency} ({tech['atr_pct']}% du cours)
+- Niveaux Clés Récent : Support: {tech['support']} {stock.currency} | Résistance: {tech['resistance']} {stock.currency}
+- Money Management Suggéré :
+  * Stop-Loss de protection : {tech['stop_loss']} {stock.currency} ({tech['stop_loss_pct']:+.1f}%)
+  * Take-Profit / Cible : {tech['take_profit']} {stock.currency} ({tech['take_profit_pct']:+.1f}%)
+  * Ratio Risque/Rendement (R:R) : 1:{tech['risk_reward_ratio']}"""
+
     financial_ratios = ""
     if is_crypto:
         mcap = details.get('market_cap')
@@ -893,42 +1207,48 @@ def analyze_stock(id):
         supply = details.get('circulating_supply')
         high52 = details.get('fifty_two_week_high')
         low52 = details.get('fifty_two_week_low')
-        ma50 = details.get('fifty_day_average')
-        ma200 = details.get('two_hundred_day_average')
 
         financial_ratios = f"""- Capitalisation boursière (Market Cap) : {f"{mcap:,.0f} {stock.currency}" if mcap else 'N/D'}
 - Volume d'échange 24h : {f"{vol24:,.0f} {stock.currency}" if vol24 else 'N/D'}
 - Offre en circulation (Circulating Supply) : {f"{supply:,.0f}" if supply else 'N/D'}
 - Sommet 52 semaines : {high52 if high52 else 'N/D'} {stock.currency}
-- Creux 52 semaines : {low52 if low52 else 'N/D'} {stock.currency}
-- Moyenne mobile 50 jours : {round(ma50, 2) if ma50 else 'N/D'} {stock.currency}
-- Moyenne mobile 200 jours : {round(ma200, 2) if ma200 else 'N/D'} {stock.currency}"""
+- Creux 52 semaines : {low52 if low52 else 'N/D'} {stock.currency}"""
 
         prompt = f"""
-Tu es un expert analyste et gestionnaire d'actifs numériques & cryptomonnaies senior.
-Analyse la position crypto suivante pour un investisseur individuel :
+Tu es un expert analyste et gestionnaire d'actifs numériques senior (quant & macro).
+Analyse la position crypto suivante de manière approfondie et sur-mesure pour cet investisseur :
+
+PROFIL DE L'INVESTISSEUR :
+- Profil de risque : {profile['risk_label']}
+- Horizon d'investissement : {profile['horizon_label']}
+- Objectif patrimonial : {profile['goal_label']}
+- Poids dans le portefeuille : {pos_weight:.1f}% (Seuil max recommandé: {profile['max_position_weight']}%) {'⚠️ ALERTE SURPONDÉRATION' if is_overweight else '✅ Poids conforme'}
 
 INFORMATIONS DE LA POSITION :
 - Crypto-Actif : {stock.name} ({stock.symbol})
-- Type : Crypto-Actif (Actif Numérique)
 - Prix d'achat (PRU) : {stock.purchase_price} {stock.currency}
 - Prix actuel : {current_price} {stock.currency}
 - Plus/Moins-value latente : {pl_percent:+.2f}%
 - Quantité détenue : {stock.quantity} (Valeur: {(stock.quantity * current_price):.2f} {stock.currency})
 
-INDICATEURS ON-CHAIN, MARCHÉ & TECHNIQUES :
+INDICATEURS TECHNIQUES & MONEY MANAGEMENT :
+{tech_summary}
+
+MÉTRIQUES ON-CHAIN & MARCHÉ :
 {financial_ratios}
 
-ACTUALITÉS RÉCENTES DU MARCHÉ CRYPTO :
+ACTUALITÉS RÉCENTES :
 {news_summary}
 
 CONSIGNES DE RÉPONSE :
-1. Fournis une analyse concise mais percutante en 3 parties en Markdown :
-   - 📌 **Dynamique de Marché & Tendances On-Chain** (Adoption, écosystème, volume et sentiment global)
-   - ⚖️ **Niveaux Techniques, Catalyseurs & Risques** (Supports/résistances clés, flux institutionnels, volatilité)
-   - 🎯 **Plan d'action & Stratégie recommandée** (Prise de bénéfices tactique, DCA, renforcement ou sécurisation)
-2. Termine OBLIGATOIREMENT ta réponse par la ligne exacte suivante (en majuscules) :
-   RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
+Fournis une analyse structurée et percutante en 4 parties en Markdown :
+1. 📌 **Synthèse Fondamentale & Dynamique On-Chain** (Adoption, liquidité, sentiment de marché)
+2. 📊 **Analyse Technique & Momentum** (Interprétation du RSI {tech['rsi']}, configuration des moyennes mobiles et MACD)
+3. 🛡️ **Gestion du Risque & Money Management** (Validation du Stop-Loss {tech['stop_loss']} {stock.currency} et Take-Profit {tech['take_profit']} {stock.currency}, gestion du poids de {pos_weight:.1f}%)
+4. 🎯 **Conseil Stratégique Personnalisé** (Adapté spécifiquement à son profil {profile['risk_profile']} et horizon {profile['investment_horizon']})
+
+Termine OBLIGATOIREMENT ta réponse par la ligne exacte suivante (en majuscules) :
+RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
 """
     else:
         try:
@@ -937,26 +1257,34 @@ CONSIGNES DE RÉPONSE :
             pe = info.get('trailingPE')
             div = info.get('dividendYield')
             target = info.get('targetMeanPrice')
-            rec = info.get('recommendationKey')
+            rec_consensus = info.get('recommendationKey')
             
             financial_ratios = f"- P/E (PER): {pe if pe else 'N/D'}\n"
             financial_ratios += f"- Rendement dividende: {round(div*100, 2) if div else 'N/D'}%\n"
             financial_ratios += f"- Prix cible moyen analystes: {target if target else 'N/D'} {stock.currency}\n"
-            financial_ratios += f"- Consensus analystes: {rec.upper() if rec else 'N/D'}\n"
+            financial_ratios += f"- Consensus analystes Wall Street: {rec_consensus.upper() if rec_consensus else 'N/D'}\n"
         except Exception:
             financial_ratios = "Ratios non disponibles."
 
         prompt = f"""
 Tu es un gérant de portefeuille et analyste financier senior de Wall Street.
-Analyse l'actif suivant pour un investisseur individuel :
+Analyse l'actif suivant de manière approfondie et sur-mesure pour cet investisseur :
+
+PROFIL DE L'INVESTISSEUR :
+- Profil de risque : {profile['risk_label']}
+- Horizon d'investissement : {profile['horizon_label']}
+- Objectif patrimonial : {profile['goal_label']}
+- Poids dans le portefeuille : {pos_weight:.1f}% (Seuil max recommandé: {profile['max_position_weight']}%) {'⚠️ ALERTE SURPONDÉRATION' if is_overweight else '✅ Poids conforme'}
 
 INFORMATIONS DE LA POSITION :
-- Titre : {stock.name} ({stock.symbol})
-- Type : {stock.asset_type or 'Action'}
+- Titre : {stock.name} ({stock.symbol}) [Type: {stock.asset_type or 'Action'}]
 - Prix d'achat (PRU) : {stock.purchase_price:.2f} {stock.currency}
 - Prix actuel : {current_price:.2f} {stock.currency}
 - Plus/Moins-value latente : {pl_percent:+.2f}%
 - Quantité : {stock.quantity} (Valeur: {(stock.quantity * current_price):.2f} {stock.currency})
+
+INDICATEURS TECHNIQUES & MONEY MANAGEMENT :
+{tech_summary}
 
 INDICATEURS FONDAMENTAUX & CONSENSUS :
 {financial_ratios}
@@ -965,12 +1293,14 @@ ACTUALITÉS RÉCENTES DU MARCHÉ :
 {news_summary}
 
 CONSIGNES DE RÉPONSE :
-1. Fournis une analyse concise mais percutante en 3 parties en Markdown :
-   - 📌 **Synthèse de la situation & Dynamique actuelle**
-   - ⚖️ **Points forts et Risques majeurs**
-   - 🎯 **Plan d'action & Stratégie recommandée**
-2. Termine OBLIGATOIREMENT ta réponse par la ligne exacte suivante (en majuscules) :
-   RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
+Fournis une analyse structurée et percutante en 4 parties en Markdown :
+1. 📌 **Synthèse Fondamentale & Valorisation** (Santé financière, multiples, catalyseurs)
+2. 📊 **Analyse Technique & Momentum** (Interprétation du RSI {tech['rsi']}, tendance des moyennes mobiles et MACD)
+3. 🛡️ **Gestion du Risque & Money Management** (Validation du Stop-Loss {tech['stop_loss']} {stock.currency} et Take-Profit {tech['take_profit']} {stock.currency}, gestion du poids de {pos_weight:.1f}%)
+4. 🎯 **Conseil Stratégique Personnalisé** (Adapté spécifiquement à son profil {profile['risk_profile']} et horizon {profile['investment_horizon']})
+
+Termine OBLIGATOIREMENT ta réponse par la ligne exacte suivante (en majuscules) :
+RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
 """
 
     try:
@@ -1010,7 +1340,14 @@ CONSIGNES DE RÉPONSE :
             'recommendation': rec,
             'news': news_summary,
             'news_items': articles,
-            'model_used': model_used
+            'model_used': model_used,
+            'technical': tech,
+            'profile': profile,
+            'weight_info': {
+                'weight_pct': round(pos_weight, 1),
+                'max_allowed_pct': profile['max_position_weight'],
+                'is_overweight': is_overweight
+            }
         })
     except Exception as e:
         return jsonify({'error': f"Erreur Gemini IA: {str(e)}"}), 500
@@ -1026,6 +1363,7 @@ def analyze_all_stocks():
     if not stocks:
         return jsonify({'error': 'Aucune position à analyser.'}), 400
 
+    profile = get_investor_profile()
     updated_count = 0
     errors = []
 
@@ -1034,27 +1372,25 @@ def analyze_all_stocks():
             # Multi-source news & fundamentals
             articles = fetch_multi_source_news(stock.symbol, stock.name)
             news_summary = ""
-            for a in articles[:4]:
+            for a in articles[:3]:
                 news_summary += f"- [{a['publisher']}] {a['title']}\n"
 
             details = fetch_single_stock_details(stock.symbol, stock.purchase_price, stock.currency)
             current_price = details.get('current_price', stock.purchase_price)
             pl_percent = ((current_price - stock.purchase_price) / stock.purchase_price) * 100 if stock.purchase_price > 0 else 0.0
-            is_crypto = (stock.asset_type == 'Crypto') or (details.get('quote_type') == 'Crypto')
-
-            if is_crypto:
-                extra_str = f"Cap: {details.get('market_cap', 'N/D')} | Vol 24h: {details.get('volume_24h', 'N/D')}"
-            else:
-                extra_str = f"PER: {details.get('pe_ratio', 'N/D')} | Div: {details.get('dividend_yield', 'N/D')}%"
+            
+            tech = compute_technical_indicators(stock.symbol, current_price, stock.asset_type, stock.currency)
 
             prompt = f"""
-Tu es un gérant de portefeuille expert en actions et crypto-actifs.
-Analyse l'actif {stock.name} ({stock.symbol}) [Type: {stock.asset_type or 'Action'}] :
-PRU: {stock.purchase_price} {stock.currency} | Cours: {current_price} {stock.currency} | Plus-value: {pl_percent:+.1f}% | {extra_str}
+Tu es un gérant de portefeuille expert.
+Analyse l'actif {stock.name} ({stock.symbol}) [Type: {stock.asset_type or 'Action'}] pour un profil {profile['risk_label']} (Horizon: {profile['horizon_label']}) :
+- PRU: {stock.purchase_price} {stock.currency} | Cours: {current_price} {stock.currency} | Plus-value: {pl_percent:+.1f}%
+- RSI (14j): {tech['rsi']} | Tendance: {tech['trend']} | MACD: {tech['macd_status']}
+- Stop-Loss suggéré: {tech['stop_loss']} {stock.currency} | Take-Profit: {tech['take_profit']} {stock.currency}
 Actualités récentes :
 {news_summary}
 
-Donne une recommandation concise.
+Donne une recommandation concise et adaptée au profil.
 Termine obligatoirement par :
 RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
 """
@@ -1080,14 +1416,14 @@ RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
             errors.append(f"{stock.symbol}: {e}")
 
     return jsonify({
-        'message': f"{updated_count} position(s) analysée(s) et actualisée(s) !",
+        'message': f"{updated_count} position(s) analysée(s) et actualisée(s) selon votre profil ({profile['risk_profile']}) !",
         'updated_count': updated_count,
         'errors': errors
     }), 200
 
 @app.route('/api/analyze-portfolio', methods=['POST'])
 def analyze_portfolio():
-    """Audit and diagnose the entire portfolio using Gemini."""
+    """Audit and diagnose the entire portfolio using Gemini tailored to investor profile."""
     api_key = get_api_key()
     if not api_key:
         return jsonify({'error': 'Clé API Gemini non configurée.'}), 400
@@ -1098,6 +1434,7 @@ def analyze_portfolio():
 
     ref_currency = get_reference_currency()
     fx_rates = get_forex_rates()
+    profile = get_investor_profile()
 
     portfolio_lines = []
     total_val_ref = 0.0
@@ -1120,13 +1457,24 @@ def analyze_portfolio():
         })
 
     summary_text = ""
+    overweight_lines = []
     for item in portfolio_lines:
         weight = (item['val_ref'] / total_val_ref * 100) if total_val_ref > 0 else 0
-        summary_text += f"- **{item['symbol']}** ({item['name']}) | Type: {item['type']} | Poids: {weight:.1f}% | Perf: {item['pl_pct']:+.1f}% | Avis IA: {item['ai_rec']}\n"
+        is_ow = weight > profile['max_position_weight']
+        if is_ow:
+            overweight_lines.append(f"{item['symbol']} ({weight:.1f}%)")
+        tag_ow = " ⚠️ [SURPONDÉRÉ]" if is_ow else ""
+        summary_text += f"- **{item['symbol']}** ({item['name']}) | Type: {item['type']} | Poids: {weight:.1f}%{tag_ow} | Perf: {item['pl_pct']:+.1f}% | Avis IA: {item['ai_rec']}\n"
 
     prompt = f"""
 Tu es un chef stratégiste en investissement et gestionnaire de patrimoine senior de renommée mondiale.
-Effectue un AUDIT STRATÉGIQUE COMPLET ET DÉTAILLÉ du portefeuille suivant (comprenant actions, ETFs, fonds et/ou crypto-actifs) en distinguant clairement l'horizon COURT TERME et l'horizon LONG TERME :
+Effectue un AUDIT STRATÉGIQUE COMPLET ET DÉTAILLÉ du portefeuille suivant (comprenant actions, ETFs, fonds et/ou crypto-actifs) EN CONFRONTANT L'ALLOCATION RÉELLE AU PROFIL D'INVESTISSEUR DU CLIENT :
+
+PROFIL D'INVESTISSEUR DU CLIENT :
+- Profil de risque : {profile['risk_label']}
+- Horizon d'investissement : {profile['horizon_label']}
+- Objectif patrimonial : {profile['goal_label']}
+- Seuil max recommandé par ligne : {profile['max_position_weight']}% {'(Lignes surpondérées: ' + ', '.join(overweight_lines) + ')' if overweight_lines else '(Aucune surpondération majeure)'}
 
 VALEUR TOTALE ESTIMÉE : {total_val_ref:,.2f} {ref_currency}
 NOMBRE DE LIGNES : {len(portfolio_lines)}
@@ -1134,24 +1482,24 @@ NOMBRE DE LIGNES : {len(portfolio_lines)}
 DÉTAIL DES POSITIONS ACTUELLES :
 {summary_text}
 
-STRUCTURE EXIGÉE DU RAPPORT (en français, format Markdown riche et professionnel avec émojis et sous-titres) :
+STRUCTURE EXIGÉE DU RAPPORT (en français, format Markdown riche et professionnel avec émojis, sous-titres et tableaux si pertinent) :
 
-1. 📊 **Diagnostic & Score de Santé Globale (0 à 100)**
-   - Score chiffré de diversification et robustesse globale (incluant actions, ETFs et exposition crypto).
-   - Synthèse de la structure actuelle (forces, faiblesses majeures, concentration).
+1. 📊 **Diagnostic Global & Adéquation au Profil ({profile['risk_profile']})**
+   - Score chiffré de santé et de diversification globale (0 à 100).
+   - Évaluation de la cohérence entre le profil souhaité ({profile['risk_profile']}) et l'allocation réelle observée (détection des déséquilibres, surexposition ou manque de diversification).
 
-2. ⚡ **Perspective & Stratégie Court Terme (1 à 6 mois — Tactique & Risques)**
-   - **Risques immédiats & Volatilité** : Analyse des lignes les plus exposées aux corrections à court terme (actions volatiles, cryptos).
-   - **Prises de bénéfices tactiques** : Lignes où un allègement ou une sécurisation de plus-value est opportune.
-   - **Opportunités tactiques** : Entrées potentielles ou renforcements à court terme.
+2. ⚡ **Stratégie & Niveaux Tactiques Court Terme (1 à 6 mois)**
+   - **Gestion des risques & Lignes volatiles** : Diagnostic des actifs à fort beta ou cryptos.
+   - **Prises de bénéfices & Allègements opportuns** : Identification des lignes mûres pour sécuriser des gains ou réduire une surpondération.
+   - **Opportunités d'entrées / Renforcements tactiques**.
 
-3. 🏛️ **Vision Stratégique Long Terme (3 à 5+ ans — Patrimoine & Rendement)**
-   - **Solidité des Fondamentaux & Mégatendances** : Capacité des actifs détenus à croître durablement (qualité des bilans, adoption blockchain/technologique).
-   - **Rendement & Effet Boule de Neige des Dividendes** : Pérennité et croissance des flux de trésorerie passifs.
-   - **Résilience Structurelle & Allocation Crypto** : Équilibre global de l'exposition au risque et protection contre l'inflation.
+3. 🏛️ **Vision Stratégique & Rendement Long Terme (3 à 5+ ans)**
+   - **Solidité des Fondamentaux & Mégatendances** (Qualité des bilans d'entreprises, adoption technologique, cryptos majeures).
+   - **Rendement & Cash-Flow Passif** (Pérennité des dividendes et staking).
+   - **Résilience aux chocs de marché et inflation**.
 
 4. 🎯 **Plan d'Action & Arbitrages Recommandés**
-   - 3 à 5 recommandations prioritaires claires et chiffrées pour optimiser le ratio rendement / risque.
+   - 3 à 5 recommandations prioritaires claires, chiffrées et personnalisées pour optimiser le ratio rendement / risque selon ses objectifs.
 """
 
     try:
@@ -1169,7 +1517,8 @@ STRUCTURE EXIGÉE DU RAPPORT (en français, format Markdown riche et professionn
 
         return jsonify({
             'analysis': analysis_text,
-            'model_used': model_used
+            'model_used': model_used,
+            'profile': profile
         })
     except Exception as e:
         return jsonify({'error': f"Erreur Gemini IA: {str(e)}"}), 500
