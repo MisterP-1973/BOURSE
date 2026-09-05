@@ -17,6 +17,7 @@
 | 📊 **Moteur d'Analyse Technique en Direct** | Calcul en temps réel du RSI (14j), Moyennes Mobiles (SMA 20, 50, 200), Momentum MACD, Volatilité ATR et Supports / Résistances |
 | 🛡️ **Money Management & Niveaux Clés** | Niveaux chiffrés de Stop-Loss protecteur, Take-Profit / Cibles, Ratio Risque/Rendement (R:R) et alertes de surpondération |
 | 🪙 **Support Complet Cryptomonnaies** | Suivi natif Bitcoin, Ethereum, Solana, Altcoins, gestion des fractions décimales et cotations directes |
+| 🔷 **Produits Structurés & Certificats (ISIN)** | Support des certificats trackers et produits dérivés SIX Swiss Exchange / Scoach par code ISIN (ex: `CH0037787659`), Ticker (`TNGCI`) ou Valor |
 | 💱 **Moteur Multi-Devises Réel (Forex)** | Conversion instantanée des positions en devise de référence (CHF, EUR, USD, GBP) via taux de change en direct |
 | ⚡ **Performance & Cache Parallélisé** | Chargement instantané (< 1s) grâce aux threads parallèles et à la mise en cache mémoire (5 min) |
 | 📈 **Graphiques Interactifs & Sparklines** | Mini-courbes de tendance 7j sur chaque actif et graphique historique interactif (1M, 6M, 1A, 5A) avec Chart.js |
@@ -26,7 +27,7 @@
 | 💰 **Revenus & Dividendes Annuels** | Calcul automatique du cash flow annuel estimé en dividendes réels |
 | 🖨️ **Impression PDF / A4** | Impression soignée de l'inventaire complet du portefeuille, de l'audit global IA et des analyses de titres |
 | ⚡ **Recommandations Directes & Batch IA** | Consensus analystes Wall Street en direct et actualisation automatique de tous les avis IA en 1 clic |
-| 🔍 **Recherche, Filtres & Tris Rapides** | Filtre instantané par texte, type d'actif (Action, ETF, Fonds, Crypto) et tri (Valeur, Plus-value %, Perf du jour) |
+| 🔍 **Recherche, Filtres & Tris Rapides** | Recherche intelligente par nom, ticker ou ISIN, filtres rapides (Action, ETF, Fonds, Crypto, Structuré) et tris instantanés |
 | 🛡️ **Sauvegarde & Restauration Complète** | Archives ZIP intégrales (Base SQLite `stocks.db` + `config.json` + Export JSON), snapshots de sécurité automatiques, gestionnaire local et scripts Windows (`backup.bat`, `restore.bat`) |
 | 💾 **Import / Export CSV & JSON** | Sauvegarde locale complète et importation rapide de vos positions |
 | 📱 **Vue Grille & Tableau Liste** | Deux modes d'affichage modernes glassmorphism avec mémorisation de vos préférences |

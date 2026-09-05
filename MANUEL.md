@@ -53,12 +53,13 @@ Cliquez sur le bandeau **"Répartition & Allocation d'Actifs"** pour dérouler l
 
 ### 4. Formulaire d'Ajout d'une Position
 
-Ajoutez une action, un ETF, un fonds ou une **cryptomonnaie** en quelques secondes :
+Ajoutez une action, un ETF, un fonds, une **cryptomonnaie** ou un **produit structuré / certificat** en quelques secondes :
 
-* **Recherche dynamique** : Tapez un nom ou un ticker (ex: *Bitcoin, BTC, Ethereum, SOL, Apple, AAPL, MC.PA...*) pour autocompléter instantanément le ticker, le nom, le type d'actif et la devise de cotation.
+* **Recherche dynamique & Codes ISIN** : Tapez un nom, un ticker ou un **code ISIN à 12 caractères** (ex: *Bitcoin, BTC, Ethereum, SOL, Apple, AAPL, MC.PA, CH0037787659, TNGCI...*) pour autocompléter instantanément le ticker, le nom, le type d'actif et la devise de cotation.
 * **Support Cryptomonnaies** : Saisie par symbole court (*BTC, ETH, SOL, XRP, DOGE*) ou paire Yahoo Finance (*BTC-USD, ETH-EUR, SOL-USD*).
+* **Support Produits Structurés & Certificats** : Reconnaissance directe des ISINs suisses (SIX Swiss Exchange / Scoach) comme *UBS Bloomberg CMCI Natural Gas USD ETC* (`CH0037787659` / `TNGCI`), certificats trackers et produits dérivés.
 * **Gestion des fractions et micro-valeurs** : Prise en charge précise des fractions de cryptos (ex: *0.0054 BTC*) et des cours inférieurs à 1$ (jusqu'à 6 décimales).
-* **Type d'actif** : Action (*Equity*), ETF (*Tracker*), Fonds (*Fund*), **Crypto-Actif (*Crypto*)**, Indice.
+* **Type d'actif** : Action (*Equity*), ETF (*Tracker*), Fonds (*Fund*), **Crypto-Actif (*Crypto*)**, **Produit Structuré / Certificat (*Structured*)**, Indice.
 * **Quantité** & **PRU** : Quantité détenue et Prix de Revient Unitaire d'achat.
 * **Devise** : Devise de cotation native du titre (USD, EUR, CHF, GBP, CAD...).
 
@@ -67,7 +68,7 @@ Ajoutez une action, un ETF, un fonds ou une **cryptomonnaie** en quelques second
 ### 5. Suivi des Positions & Outils d'Analyse
 
 #### Outils de filtrage et de tri :
-* **Filtres rapides** : Affichez *Tous*, uniquement les *Actions*, les *ETFs*, les *Fonds* ou les **🪙 Cryptos**.
+* **Filtres rapides** : Affichez *Tous*, uniquement les *Actions*, les *ETFs*, les *Fonds*, les **🪙 Cryptos** ou les **🔷 Structurés**.
 * **Recherche instantanée** : Filtrez en temps réel dans vos positions détenues.
 * **Tri personnalisé** : Par *Plus forte valeur*, *Plus-value (%)*, *Performance du jour*, *Ordre alphabétique*.
 * **Vues Grille & Liste** : Basculez entre vue cartes et vue tableau.
