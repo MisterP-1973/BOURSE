@@ -94,10 +94,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FORMATTERS ---
     const formatMoney = (val, currency = 'CHF') => {
         if (val === null || val === undefined || isNaN(val)) return '—';
-        return new Intl.NumberFormat('fr-CH', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(val) + ' ' + currency;
+        const absVal = Math.abs(val);
+        let minDec = 2;
+        let maxDec = 2;
+        if (absVal > 0 && absVal < 0.01) {
+            minDec = 4;
+            maxDec = 6;
+        } else if (absVal > 0 && absVal < 1) {
+            minDec = 2;
+            maxDec = 4;
+        }
+        const formatted = new Intl.NumberFormat('fr-CH', {
+            minimumFractionDigits: minDec,
+            maximumFractionDigits: maxDec
+        }).format(val);
+        return currency ? `${formatted} ${currency}` : formatted;
+    };
+
+    const formatQuantity = (qty) => {
+        if (qty === null || qty === undefined || isNaN(qty)) return '0';
+        if (Number.isInteger(qty)) return qty.toString();
+        return parseFloat(Number(qty).toFixed(8)).toString();
+    };
+
+    const formatCompactNumber = (number) => {
+        if (!number || isNaN(number)) return '—';
+        if (number >= 1e12) return (number / 1e12).toFixed(2) + ' T';
+        if (number >= 1e9) return (number / 1e9).toFixed(2) + ' Mrd';
+        if (number >= 1e6) return (number / 1e6).toFixed(2) + ' M';
+        if (number >= 1e3) return (number / 1e3).toFixed(1) + ' k';
+        return number.toString();
     };
 
     const formatPercent = (val) => {
@@ -363,13 +389,14 @@ document.addEventListener('DOMContentLoaded', () => {
         'MUTUALFUND': 'Fund',
         'FUND': 'Fund',
         'CRYPTOCURRENCY': 'Crypto',
+        'CRYPTO': 'Crypto',
         'INDEX': 'Index'
     };
 
     searchQuery.addEventListener('input', () => {
         clearTimeout(searchTimeout);
         const q = searchQuery.value.trim();
-        if (q.length < 2) { closeDropdown(); return; }
+        if (q.length < 1) { closeDropdown(); return; }
 
         searchTimeout = setTimeout(async () => {
             try {
@@ -380,10 +407,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (results.length === 0) {
                     searchDropdown.innerHTML = `
                         <div class="search-no-result" style="padding:1rem; text-align:center;">
-                            <div style="margin-bottom:0.6rem; color:var(--text-secondary); font-size:0.85rem;">Aucun ticker direct trouvé</div>
-                            <a href="https://www.swissquote.ch/trading/search?query=${encodeURIComponent(q)}" target="_blank" class="btn btn-sm btn-secondary" style="font-size:0.78rem; text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;" onclick="event.stopPropagation();">
-                                🇨🇭 Rechercher « ${q} » sur Swissquote.ch <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                            </a>
+                            <div style="margin-bottom:0.6rem; color:var(--text-secondary); font-size:0.85rem;">Aucun actif direct trouvé</div>
+                            <div style="display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
+                                <a href="https://www.swissquote.ch/trading/search?query=${encodeURIComponent(q)}" target="_blank" class="btn btn-sm btn-secondary" style="font-size:0.78rem; text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;" onclick="event.stopPropagation();">
+                                    🇨🇭 Swissquote.ch <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                </a>
+                                <a href="https://coinmarketcap.com/fr/currencies/${encodeURIComponent(q.toLowerCase())}/" target="_blank" class="btn btn-sm btn-secondary" style="font-size:0.78rem; text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;" onclick="event.stopPropagation();">
+                                    🪙 CoinMarketCap <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                </a>
+                            </div>
                         </div>
                     `;
                     searchDropdown.classList.remove('hidden');
@@ -394,8 +426,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const item = document.createElement('div');
                     item.className = 'search-item';
                     const rawType = (r.type || 'Equity').toUpperCase();
-                    const cleanType = typeMapping[rawType] || 'Equity';
+                    const cleanType = typeMapping[rawType] || (rawType === 'CRYPTO' ? 'Crypto' : 'Equity');
                     const isinBadge = r.isin ? `<span class="badge-type" style="background:rgba(139,92,246,0.25); color:#c084fc; border:1px solid rgba(139,92,246,0.4);">ISIN: ${r.isin}</span>` : '';
+                    const cryptoIcon = cleanType === 'Crypto' ? '<i class="fa-brands fa-bitcoin"></i> ' : '';
 
                     item.innerHTML = `
                         <div class="search-item-main">
@@ -404,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="search-item-meta">
                             ${isinBadge}
-                            <span class="badge-type badge-type-${cleanType.toLowerCase()}">${cleanType}</span>
+                            <span class="badge-type badge-type-${cleanType.toLowerCase()}">${cryptoIcon}${cleanType}</span>
                             <span class="search-exchange">${r.exchange || ''}</span>
                         </div>
                     `;
@@ -413,6 +446,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         nameInput.value = r.name;
                         searchQuery.value = `${r.symbol} — ${r.name}`;
                         assetTypeSelect.value = cleanType;
+                        
+                        // Auto-detect currency from crypto pair (e.g. BTC-USD -> USD, BTC-EUR -> EUR)
+                        if (cleanType === 'Crypto' && r.symbol.includes('-')) {
+                            const pairCurr = r.symbol.split('-').pop().toUpperCase();
+                            const currSelect = document.getElementById('currency');
+                            if ([...currSelect.options].some(o => o.value === pairCurr)) {
+                                currSelect.value = pairCurr;
+                            }
+                        }
+                        
                         closeDropdown();
                         document.getElementById('quantity').focus();
                     });
@@ -709,6 +752,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const canvasId = `sparkline-tbl-${stock.id}`;
                 const row = document.createElement('tr');
+                const isCrypto = (stock.asset_type === 'Crypto' || stock.quote_type === 'Crypto');
+                let ratioColContent = '—';
+                if (isCrypto) {
+                    if (stock.market_cap) {
+                        ratioColContent = `<span style="font-size:0.75rem; color:#fde047;" title="Capitalisation Boursière"><i class="fa-solid fa-coins"></i> Cap: ${formatCompactNumber(stock.market_cap)}</span>`;
+                    } else if (stock.volume_24h) {
+                        ratioColContent = `<span style="font-size:0.75rem; color:#fde047;" title="Volume d'échange 24h"><i class="fa-solid fa-chart-simple"></i> Vol: ${formatCompactNumber(stock.volume_24h)}</span>`;
+                    }
+                } else if (stock.dividend_yield) {
+                    ratioColContent = `${stock.dividend_yield.toFixed(1)}%`;
+                } else if (stock.pe_ratio) {
+                    ratioColContent = `PER: ${stock.pe_ratio.toFixed(1)}`;
+                }
+
                 row.innerHTML = `
                     <td>
                         <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:2px;">
@@ -737,7 +794,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${recHtml}
                     </td>
                     <td style="text-align:right; font-family:var(--font-mono); font-size:0.85rem;">
-                        <div>${stock.quantity} × ${stock.purchase_price.toFixed(2)}</div>
+                        <div>${formatQuantity(stock.quantity)} × ${formatMoney(stock.purchase_price, '')}</div>
                         <div style="font-size:0.72rem; color:var(--text-secondary);">${stock.currency}</div>
                     </td>
                     <td style="text-align:right; font-family:var(--font-mono);">
@@ -843,6 +900,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const canvasId = `sparkline-${stock.id}`;
 
+            const isCrypto = (stock.asset_type === 'Crypto' || stock.quote_type === 'Crypto');
+            let bottomMetaHtml = `Acheté le: ${stock.purchase_date}`;
+            if (isCrypto) {
+                if (stock.market_cap) {
+                    bottomMetaHtml = `<span style="color:#fde047;" title="Capitalisation boursière totale"><i class="fa-solid fa-coins"></i> Cap: ${formatCompactNumber(stock.market_cap)} ${stock.currency}</span>`;
+                } else if (stock.volume_24h) {
+                    bottomMetaHtml = `<span style="color:#fde047;" title="Volume d'échange 24h"><i class="fa-solid fa-chart-simple"></i> Vol 24h: ${formatCompactNumber(stock.volume_24h)} ${stock.currency}</span>`;
+                }
+            } else if (stock.dividend_yield) {
+                bottomMetaHtml = `<i class="fa-solid fa-coins"></i> Div: ${stock.dividend_yield.toFixed(1)}%`;
+            } else if (stock.pe_ratio) {
+                bottomMetaHtml = `PER: ${stock.pe_ratio.toFixed(1)}`;
+            }
+
             card.innerHTML = `
                 <div class="card-top">
                     <div class="card-top-left">
@@ -873,7 +944,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-metrics-grid">
                     <div class="metric-box">
                         <span class="metric-box-label">QTE / PRU</span>
-                        <span class="metric-box-val">${stock.quantity} × ${stock.purchase_price.toFixed(2)}</span>
+                        <span class="metric-box-val">${formatQuantity(stock.quantity)} × ${formatMoney(stock.purchase_price, '')}</span>
                         <span class="metric-box-sub">${stock.currency}</span>
                     </div>
                     <div class="metric-box">
@@ -890,7 +961,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <div class="card-bottom-bar">
                     <div style="font-size:0.75rem; color:var(--text-muted);">
-                        ${stock.dividend_yield ? `<i class="fa-solid fa-coins"></i> Div: ${stock.dividend_yield.toFixed(1)}%` : (stock.pe_ratio ? `PER: ${stock.pe_ratio.toFixed(1)}` : `Acheté le: ${stock.purchase_date}`)}
+                        ${bottomMetaHtml}
                     </div>
                     <div class="card-actions-group">
                         <button class="btn btn-sm btn-secondary" onclick="openInteractiveChart('${stock.symbol}', '${stock.name.replace(/'/g, "\\'")}')" title="Graphique historique">
@@ -1075,6 +1146,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                 }
 
+                const isCrypto = (data.analysis && (data.analysis.includes('Crypto') || data.analysis.includes('crypto') || symbol.includes('-USD') || symbol.includes('-EUR') || symbol.includes('-CHF')));
+                const searchExtUrl = isCrypto ? 
+                    `https://coinmarketcap.com/fr/currencies/${encodeURIComponent(symbol.split('-')[0].toLowerCase())}/` : 
+                    `https://www.swissquote.ch/trading/search?query=${encodeURIComponent(symbol.split('.')[0])}`;
+                const extBtnLabel = isCrypto ? `🪙 Fiche CoinMarketCap` : `🇨🇭 Fiche Swissquote.ch`;
+
                 aiMarkdownContent.innerHTML = marked.parse(data.analysis) + newsSourcesHtml;
                 aiRecBadgeRow.innerHTML = `
                     <div style="margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
@@ -1084,8 +1161,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <i class="fa-solid fa-sparkles"></i> ${data.recommendation || 'CONSERVER'}
                             </span>
                         </div>
-                        <a href="https://www.swissquote.ch/trading/search?query=${encodeURIComponent(symbol.split('.')[0])}" target="_blank" class="btn btn-sm btn-secondary" style="font-size:0.78rem; text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;" title="Ouvrir la fiche de cotation sur Swissquote.ch">
-                            🇨🇭 Fiche Swissquote.ch <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        <a href="${searchExtUrl}" target="_blank" class="btn btn-sm btn-secondary" style="font-size:0.78rem; text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;" title="Ouvrir la fiche de cotation">
+                            ${extBtnLabel} <i class="fa-solid fa-arrow-up-right-from-square"></i>
                         </a>
                     </div>
                 `;
@@ -1442,17 +1519,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rec = s.effective_recommendation || s.ai_recommendation || 'CONSERVER';
                 const recClass = `badge-${rec.toLowerCase()}`;
 
+                const isCrypto = (s.asset_type === 'Crypto' || s.quote_type === 'Crypto');
+                let yieldOrMetrics = '—';
+                if (isCrypto) {
+                    if (s.market_cap) yieldOrMetrics = `Cap: ${formatCompactNumber(s.market_cap)}`;
+                    else if (s.volume_24h) yieldOrMetrics = `Vol: ${formatCompactNumber(s.volume_24h)}`;
+                } else if (s.dividend_yield) {
+                    yieldOrMetrics = s.dividend_yield.toFixed(1) + '%';
+                } else if (s.pe_ratio) {
+                    yieldOrMetrics = 'PER: ' + s.pe_ratio.toFixed(1);
+                }
+
                 rowsHtml += `
                     <tr>
                         <td><strong>${s.symbol}</strong></td>
                         <td>${s.name}</td>
                         <td><span style="font-size:10px; color:#64748b;">${s.asset_type || 'Action'}</span></td>
-                        <td class="num">${s.quantity}</td>
-                        <td class="num">${s.purchase_price.toFixed(2)} ${s.currency}</td>
-                        <td class="num"><strong>${s.current_price.toFixed(2)} ${s.currency}</strong></td>
+                        <td class="num">${formatQuantity(s.quantity)}</td>
+                        <td class="num">${formatMoney(s.purchase_price, s.currency)}</td>
+                        <td class="num"><strong>${formatMoney(s.current_price, s.currency)}</strong></td>
                         <td class="num">${formatMoney(s.current_value_ref || s.current_value, refCurr)}</td>
-                        <td class="num ${plClass}">${plSign}${s.pl_percent.toFixed(2)}% (${plSign}${s.pl_value.toFixed(2)})</td>
-                        <td class="num">${s.dividend_yield ? s.dividend_yield.toFixed(1) + '%' : (s.pe_ratio ? 'PER: ' + s.pe_ratio.toFixed(1) : '—')}</td>
+                        <td class="num ${plClass}">${plSign}${s.pl_percent.toFixed(2)}% (${plSign}${formatMoney(s.pl_value_ref !== undefined ? s.pl_value_ref : s.pl_value, refCurr)})</td>
+                        <td class="num">${yieldOrMetrics}</td>
                         <td style="text-align:center;"><span class="badge ${recClass}">${rec}</span></td>
                     </tr>
                 `;

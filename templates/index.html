@@ -203,27 +203,27 @@
         <!-- Add Stock Form Section -->
         <section class="glass-panel section-add">
             <div class="section-title-row">
-                <h2><i class="fa-solid fa-circle-plus gradient-text"></i> Ajouter une Position (Action, ETF, Fonds)</h2>
+                <h2><i class="fa-solid fa-circle-plus gradient-text"></i> Ajouter une Position (Action, ETF, Fonds, Crypto)</h2>
                 <button type="button" id="toggle-add-form-btn" class="btn btn-sm btn-secondary">
                     <i class="fa-solid fa-minus"></i> Réduire
                 </button>
             </div>
             <form id="add-stock-form" class="grid-form">
                 <div class="form-group form-group-search">
-                    <label for="search-query">Recherche dynamique (Ticker, Nom ou Code ISIN)</label>
+                    <label for="search-query">Recherche dynamique (Action, ETF, Fonds, Crypto ou Code ISIN)</label>
                     <div class="search-wrapper">
                         <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                        <input type="text" id="search-query" placeholder="ex: Apple, AAPL, MC.PA, ou ISIN (FR0000121014, CH0038863350, IE00B4L5Y983)..." autocomplete="off">
+                        <input type="text" id="search-query" placeholder="ex: Bitcoin, BTC-USD, Ethereum, Apple, AAPL, MC.PA, ou ISIN (FR0000121014)..." autocomplete="off">
                         <div id="search-dropdown" class="search-dropdown hidden"></div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="symbol">Code Ticker *</label>
-                    <input type="text" id="symbol" required placeholder="ex: AAPL" style="text-transform:uppercase;">
+                    <input type="text" id="symbol" required placeholder="ex: BTC-USD, AAPL" style="text-transform:uppercase;">
                 </div>
                 <div class="form-group">
                     <label for="name">Nom du titre *</label>
-                    <input type="text" id="name" required placeholder="ex: Apple Inc.">
+                    <input type="text" id="name" required placeholder="ex: Bitcoin USD, Apple Inc.">
                 </div>
                 <div class="form-group">
                     <label for="asset_type">Type d'actif</label>
@@ -241,11 +241,11 @@
                 </div>
                 <div class="form-group">
                     <label for="quantity">Quantité détenue *</label>
-                    <input type="number" id="quantity" step="any" min="0" required placeholder="ex: 10">
+                    <input type="number" id="quantity" step="any" min="0" required placeholder="ex: 0.05 ou 10">
                 </div>
                 <div class="form-group">
                     <label for="purchase_price">Prix d'achat unitaire (PRU) *</label>
-                    <input type="number" id="purchase_price" step="any" min="0" required placeholder="ex: 150.00">
+                    <input type="number" id="purchase_price" step="any" min="0" required placeholder="ex: 65000.00 ou 150.00">
                 </div>
                 <div class="form-group">
                     <label for="currency">Devise de cotation</label>
@@ -283,6 +283,7 @@
                         <button class="pill" data-filter="Equity">Actions</button>
                         <button class="pill" data-filter="ETF">ETFs</button>
                         <button class="pill" data-filter="Fund">Fonds</button>
+                        <button class="pill" data-filter="Crypto">Cryptos</button>
                     </div>
 
                     <!-- Sort Select -->

@@ -14,16 +14,17 @@
 
 | Fonctionnalité | Description |
 |---|---|
+| 🪙 **Support Complet Cryptomonnaies** | Suivi natif Bitcoin, Ethereum, Solana, Altcoins, gestion des fractions décimales et cotations directes |
 | 💱 **Moteur Multi-Devises Réel (Forex)** | Conversion instantanée des positions en devise de référence (CHF, EUR, USD, GBP) via taux de change en direct |
 | ⚡ **Performance & Cache Parallélisé** | Chargement instantané (< 1s) grâce aux threads parallèles et à la mise en cache mémoire (5 min) |
 | 📈 **Graphiques Interactifs & Sparklines** | Mini-courbes de tendance 7j sur chaque actif et graphique historique interactif (1M, 6M, 1A, 5A) avec Chart.js |
 | 🍩 **Allocation d'Actifs (Donut Chart)** | Visualisation de la répartition du portefeuille par symbole et classe d'actifs |
 | 🤖 **Audit Global IA du Portefeuille** | Diagnostic complet Gemini : score de diversification (0-100), analyse des risques, détection des doublons et rééquilibrage |
-| 🎯 **Analyse IA par Titre Fiabilisée** | Recommandation structurée (ACHETER / CONSERVER / VENDRE) intégrant ratios financiers (PER, dividendes) et actualités |
+| 🎯 **Analyse IA par Titre Fiabilisée** | Recommandation structurée (ACHETER / CONSERVER / VENDRE) intégrant ratios financiers / on-chain et actualités |
 | 💰 **Revenus & Dividendes Annuels** | Calcul automatique du cash flow annuel estimé en dividendes réels |
 | 🖨️ **Impression PDF / A4** | Impression soignée de l'inventaire complet du portefeuille, de l'audit global IA et des analyses de titres |
 | ⚡ **Recommandations Directes & Batch IA** | Consensus analystes Wall Street en direct et actualisation automatique de tous les avis IA en 1 clic |
-| 🔍 **Recherche, Filtres & Tris Rapides** | Filtre instantané par texte, type d'actif (Action, ETF, Fonds) et tri (Valeur, Plus-value %, Perf du jour) |
+| 🔍 **Recherche, Filtres & Tris Rapides** | Filtre instantané par texte, type d'actif (Action, ETF, Fonds, Crypto) et tri (Valeur, Plus-value %, Perf du jour) |
 | 💾 **Import / Export CSV & JSON** | Sauvegarde locale complète et importation rapide de vos positions |
 | 📱 **Vue Grille & Tableau Liste** | Deux modes d'affichage modernes glassmorphism avec mémorisation de vos préférences |
 

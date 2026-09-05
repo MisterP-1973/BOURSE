@@ -184,12 +184,51 @@ def convert_currency(amount, from_curr, to_curr, rates=None):
     usd_amount = float(amount) / rate_from
     return usd_amount * rate_to
 
-def is_valid_price(price, fallback_price):
+def is_valid_price(price, fallback_price=None):
     if price is None or price <= 0:
         return False
-    if fallback_price and fallback_price > 0 and price < fallback_price * 0.001:
-        return False
     return True
+
+# --- POPULAR CRYPTOS REFERENCE ---
+POPULAR_CRYPTOS = [
+    {'symbol': 'BTC-USD', 'name': 'Bitcoin', 'short': 'BTC', 'type': 'Crypto'},
+    {'symbol': 'ETH-USD', 'name': 'Ethereum', 'short': 'ETH', 'type': 'Crypto'},
+    {'symbol': 'SOL-USD', 'name': 'Solana', 'short': 'SOL', 'type': 'Crypto'},
+    {'symbol': 'XRP-USD', 'name': 'XRP (Ripple)', 'short': 'XRP', 'type': 'Crypto'},
+    {'symbol': 'BNB-USD', 'name': 'BNB (Binance Coin)', 'short': 'BNB', 'type': 'Crypto'},
+    {'symbol': 'ADA-USD', 'name': 'Cardano', 'short': 'ADA', 'type': 'Crypto'},
+    {'symbol': 'DOGE-USD', 'name': 'Dogecoin', 'short': 'DOGE', 'type': 'Crypto'},
+    {'symbol': 'AVAX-USD', 'name': 'Avalanche', 'short': 'AVAX', 'type': 'Crypto'},
+    {'symbol': 'DOT-USD', 'name': 'Polkadot', 'short': 'DOT', 'type': 'Crypto'},
+    {'symbol': 'LINK-USD', 'name': 'Chainlink', 'short': 'LINK', 'type': 'Crypto'},
+    {'symbol': 'SUI-USD', 'name': 'Sui', 'short': 'SUI', 'type': 'Crypto'},
+    {'symbol': 'NEAR-USD', 'name': 'NEAR Protocol', 'short': 'NEAR', 'type': 'Crypto'},
+    {'symbol': 'SHIB-USD', 'name': 'Shiba Inu', 'short': 'SHIB', 'type': 'Crypto'},
+    {'symbol': 'PEPE-USD', 'name': 'Pepe', 'short': 'PEPE', 'type': 'Crypto'},
+    {'symbol': 'MATIC-USD', 'name': 'Polygon (MATIC/POL)', 'short': 'MATIC', 'type': 'Crypto'},
+    {'symbol': 'LTC-USD', 'name': 'Litecoin', 'short': 'LTC', 'type': 'Crypto'},
+    {'symbol': 'UNI7083-USD', 'name': 'Uniswap', 'short': 'UNI', 'type': 'Crypto'},
+    {'symbol': 'ATOM-USD', 'name': 'Cosmos', 'short': 'ATOM', 'type': 'Crypto'},
+    {'symbol': 'XLM-USD', 'name': 'Stellar Lumen', 'short': 'XLM', 'type': 'Crypto'},
+    {'symbol': 'HBAR-USD', 'name': 'Hedera Hashgraph', 'short': 'HBAR', 'type': 'Crypto'},
+    {'symbol': 'RENDER-USD', 'name': 'Render Token', 'short': 'RENDER', 'type': 'Crypto'},
+    {'symbol': 'AAVE-USD', 'name': 'Aave', 'short': 'AAVE', 'type': 'Crypto'},
+    {'symbol': 'USDT-USD', 'name': 'Tether USD', 'short': 'USDT', 'type': 'Crypto'},
+    {'symbol': 'USDC-USD', 'name': 'USD Coin', 'short': 'USDC', 'type': 'Crypto'}
+]
+
+def normalize_crypto_symbol(symbol, asset_type='Equity', currency='USD'):
+    """Normalize crypto symbols: e.g. BTC with Crypto asset_type becomes BTC-USD."""
+    if not symbol:
+        return symbol
+    sym = symbol.strip().upper()
+    if asset_type == 'Crypto' or any(c['short'] == sym or c['symbol'] == sym for c in POPULAR_CRYPTOS):
+        if '-' not in sym and '=' not in sym and '.' not in sym:
+            curr = (currency or 'USD').upper()
+            if curr in ['USD', 'EUR', 'CAD', 'GBP']:
+                return f"{sym}-{curr}"
+            return f"{sym}-USD"
+    return sym
 
 def fetch_single_stock_details(symbol, fallback_price, fallback_currency='USD'):
     """Fetch rich details for a single ticker with 7-day sparkline, metrics and caching."""
@@ -211,98 +250,123 @@ def fetch_single_stock_details(symbol, fallback_price, fallback_currency='USD'):
         'dividend_yield': None,
         'fifty_two_week_high': None,
         'fifty_two_week_low': None,
+        'market_cap': None,
+        'volume_24h': None,
+        'circulating_supply': None,
+        'fifty_day_average': None,
+        'two_hundred_day_average': None,
         'price_unavailable': False,
         'quote_type': 'Equity'
     }
 
-    try:
-        ticker = yf.Ticker(symbol)
-        # 1. Fetch 1mo history for sparkline and daily delta
-        hist = ticker.history(period="1mo")
-        if not hist.empty:
-            closes = [float(x) for x in hist['Close'].dropna().tolist()]
-            if closes:
-                last_price = closes[-1]
-                if is_valid_price(last_price, fallback_price):
-                    data['current_price'] = last_price
-                    data['sparkline'] = closes[-7:] if len(closes) >= 7 else closes
-                    
-                    if len(closes) >= 2:
-                        prev = closes[-2]
-                        data['previous_close'] = prev
-                        data['day_change'] = last_price - prev
-                        data['day_change_percent'] = ((last_price - prev) / prev) * 100 if prev > 0 else 0.0
+    # Attempt fetch with primary symbol, or normalized crypto symbol if empty
+    symbols_to_try = [symbol]
+    if '-' not in symbol:
+        crypto_norm = normalize_crypto_symbol(symbol, 'Crypto', fallback_currency)
+        if crypto_norm != symbol:
+            symbols_to_try.append(crypto_norm)
 
-        # Fallback to fast_info or info if price not determined
-        if data['current_price'] is None:
+    for sym in symbols_to_try:
+        try:
+            ticker = yf.Ticker(sym)
+            # 1. Fetch 1mo history for sparkline and daily delta
+            hist = ticker.history(period="1mo")
+            if not hist.empty:
+                closes = [float(x) for x in hist['Close'].dropna().tolist()]
+                if closes:
+                    last_price = closes[-1]
+                    if is_valid_price(last_price, fallback_price):
+                        data['current_price'] = last_price
+                        data['sparkline'] = closes[-7:] if len(closes) >= 7 else closes
+                        
+                        if len(closes) >= 2:
+                            prev = closes[-2]
+                            data['previous_close'] = prev
+                            data['day_change'] = last_price - prev
+                            data['day_change_percent'] = ((last_price - prev) / prev) * 100 if prev > 0 else 0.0
+
+            # Fallback to fast_info or info if price not determined
+            if data['current_price'] is None:
+                try:
+                    fi = ticker.fast_info
+                    if hasattr(fi, 'last_price') and fi.last_price:
+                        p = float(fi.last_price)
+                        if is_valid_price(p, fallback_price):
+                            data['current_price'] = p
+                    if hasattr(fi, 'currency') and fi.currency:
+                        data['currency'] = str(fi.currency).upper()
+                except Exception:
+                    pass
+
+            # Fetch extra fundamentals & crypto metrics
             try:
-                fi = ticker.fast_info
-                if hasattr(fi, 'last_price') and fi.last_price:
-                    p = float(fi.last_price)
-                    if is_valid_price(p, fallback_price):
-                        data['current_price'] = p
-                if hasattr(fi, 'currency') and fi.currency:
-                    data['currency'] = str(fi.currency).upper()
+                info = ticker.info or {}
+                if info:
+                    data['pe_ratio'] = info.get('trailingPE') or info.get('forwardPE')
+                    
+                    # Dividend Rate & Yield
+                    div_rate = info.get('dividendRate') or info.get('trailingAnnualDividendRate')
+                    if div_rate and float(div_rate) > 0:
+                        data['dividend_rate'] = float(div_rate)
+                    else:
+                        data['dividend_rate'] = None
+                    
+                    raw_yield = info.get('dividendYield')
+                    if raw_yield is None:
+                        raw_yield = info.get('trailingAnnualDividendYield')
+                    
+                    if raw_yield is not None:
+                        raw_val = float(raw_yield)
+                        if raw_val > 0.5:
+                            data['dividend_yield'] = raw_val
+                        elif raw_val > 0:
+                            data['dividend_yield'] = raw_val * 100.0
+                        else:
+                            data['dividend_yield'] = 0.0
+                    elif data['dividend_rate'] and data['current_price'] and data['current_price'] > 0:
+                        data['dividend_yield'] = (data['dividend_rate'] / data['current_price']) * 100.0
+                    else:
+                        data['dividend_yield'] = None
+
+                    data['fifty_two_week_high'] = info.get('fiftyTwoWeekHigh')
+                    data['fifty_two_week_low'] = info.get('fiftyTwoWeekLow')
+                    
+                    # Crypto & General Market Metrics
+                    data['market_cap'] = info.get('marketCap')
+                    data['volume_24h'] = info.get('volume24Hr') or info.get('volume')
+                    data['circulating_supply'] = info.get('circulatingSupply')
+                    data['fifty_day_average'] = info.get('fiftyDayAverage')
+                    data['two_hundred_day_average'] = info.get('twoHundredDayAverage')
+
+                    # Analyst Consensus
+                    rec_key = str(info.get('recommendationKey') or '').lower().strip()
+                    if rec_key in ['strong_buy', 'strongbuy', 'buy']:
+                        data['analyst_consensus'] = 'ACHETER'
+                    elif rec_key in ['sell', 'strong_sell', 'underperform']:
+                        data['analyst_consensus'] = 'VENDRE'
+                    elif rec_key in ['hold', 'neutral']:
+                        data['analyst_consensus'] = 'CONSERVER'
+                    else:
+                        data['analyst_consensus'] = None
+                    
+                    data['target_mean_price'] = info.get('targetMeanPrice')
+                    data['num_analysts'] = info.get('numberOfAnalystOpinions')
+
+                    if not data['currency'] or data['currency'] == fallback_currency:
+                        data['currency'] = info.get('currency', fallback_currency).upper()
+                    
+                    raw_qtype = str(info.get('quoteType', 'Equity')).upper()
+                    if raw_qtype == 'CRYPTOCURRENCY' or sym.endswith('-USD') or sym.endswith('-EUR'):
+                        data['quote_type'] = 'Crypto'
+                    else:
+                        data['quote_type'] = info.get('quoteType', 'Equity')
             except Exception:
                 pass
 
-        # Fetch extra fundamentals (lightweight/safe)
-        try:
-            info = ticker.info or {}
-            if info:
-                data['pe_ratio'] = info.get('trailingPE') or info.get('forwardPE')
-                
-                # Dividend Rate (Amount per share per year)
-                div_rate = info.get('dividendRate') or info.get('trailingAnnualDividendRate')
-                if div_rate and float(div_rate) > 0:
-                    data['dividend_rate'] = float(div_rate)
-                else:
-                    data['dividend_rate'] = None
-                
-                # Dividend Yield (%)
-                raw_yield = info.get('dividendYield')
-                if raw_yield is None:
-                    raw_yield = info.get('trailingAnnualDividendYield')
-                
-                if raw_yield is not None:
-                    raw_val = float(raw_yield)
-                    # yfinance returns yield either as percentage (e.g. 3.5 for 3.5%) or decimal (e.g. 0.035)
-                    if raw_val > 0.5:
-                        data['dividend_yield'] = raw_val
-                    elif raw_val > 0:
-                        data['dividend_yield'] = raw_val * 100.0
-                    else:
-                        data['dividend_yield'] = 0.0
-                elif data['dividend_rate'] and data['current_price'] and data['current_price'] > 0:
-                    data['dividend_yield'] = (data['dividend_rate'] / data['current_price']) * 100.0
-                else:
-                    data['dividend_yield'] = None
-
-                data['fifty_two_week_high'] = info.get('fiftyTwoWeekHigh')
-                data['fifty_two_week_low'] = info.get('fiftyTwoWeekLow')
-                
-                # Analyst Consensus
-                rec_key = str(info.get('recommendationKey') or '').lower().strip()
-                if rec_key in ['strong_buy', 'strongbuy', 'buy']:
-                    data['analyst_consensus'] = 'ACHETER'
-                elif rec_key in ['sell', 'strong_sell', 'underperform']:
-                    data['analyst_consensus'] = 'VENDRE'
-                elif rec_key in ['hold', 'neutral']:
-                    data['analyst_consensus'] = 'CONSERVER'
-                else:
-                    data['analyst_consensus'] = None
-                
-                data['target_mean_price'] = info.get('targetMeanPrice')
-                data['num_analysts'] = info.get('numberOfAnalystOpinions')
-
-                if not data['currency'] or data['currency'] == fallback_currency:
-                    data['currency'] = info.get('currency', fallback_currency).upper()
-                data['quote_type'] = info.get('quoteType', 'Equity')
-        except Exception:
-            pass
-
-    except Exception as e:
-        print(f"Error fetching detailed market data for {symbol}: {e}")
+            if data['current_price'] is not None:
+                break
+        except Exception as e:
+            print(f"Error fetching detailed market data for {sym}: {e}")
 
     if data['current_price'] is None:
         data['current_price'] = fallback_price
@@ -327,37 +391,74 @@ def index():
 
 @app.route('/api/search', methods=['GET'])
 def search_ticker():
-    """Search for stocks, ETFs, and funds by ticker symbol, company name, or ISIN code."""
+    """Search for stocks, ETFs, funds, and cryptos by ticker symbol, name, or ISIN code."""
     query = request.args.get('q', '').strip()
-    if not query or len(query) < 2:
+    if not query or len(query) < 1:
         return jsonify([])
     
     is_isin = bool(len(query) == 12 and query[:2].isalpha() and query[2:].isalnum())
+    results = []
+    seen_symbols = set()
 
-    try:
-        search = yf.Search(query, max_results=8)
-        quotes = search.quotes
-        results = []
-        for q in quotes:
-            symbol = q.get('symbol', '')
-            if not symbol:
-                continue
-            name = q.get('longname') or q.get('shortname') or symbol
-            type_disp = q.get('typeDisp', q.get('quoteType', 'Equity'))
-            exchange = q.get('exchange', '')
-            
+    # 1. Instant popular crypto lookup
+    q_lower = query.lower()
+    for c in POPULAR_CRYPTOS:
+        if (q_lower in c['short'].lower() or 
+            q_lower in c['name'].lower() or 
+            q_lower in c['symbol'].lower() or
+            q_lower in ['crypto', 'cryptos', 'bitcoin', 'altcoin']):
             results.append({
-                'symbol': symbol,
-                'name': name,
-                'type': type_disp,
-                'exchange': exchange,
-                'is_isin': is_isin,
-                'isin': query.upper() if is_isin else None
+                'symbol': c['symbol'],
+                'name': c['name'],
+                'type': 'Crypto',
+                'exchange': 'CCC (Crypto)',
+                'is_isin': False,
+                'isin': None
             })
-        return jsonify(results)
-    except Exception as e:
-        print(f"Search error: {e}")
-        return jsonify([])
+            seen_symbols.add(c['symbol'])
+            if len(results) >= 5:
+                break
+
+    # 2. Query Yahoo Finance Search
+    if len(query) >= 2:
+        try:
+            search = yf.Search(query, max_results=8)
+            quotes = search.quotes or []
+            for q in quotes:
+                symbol = q.get('symbol', '')
+                if not symbol or symbol in seen_symbols:
+                    continue
+                name = q.get('longname') or q.get('shortname') or symbol
+                raw_type = q.get('typeDisp') or q.get('quoteType') or 'Equity'
+                
+                # Normalize asset types
+                raw_type_str = str(raw_type).upper()
+                if raw_type_str in ['CRYPTOCURRENCY', 'CRYPTO']:
+                    type_disp = 'Crypto'
+                elif raw_type_str in ['ETF', 'EXCHANGE TRADED FUND']:
+                    type_disp = 'ETF'
+                elif raw_type_str in ['MUTUALFUND', 'FUND']:
+                    type_disp = 'Fund'
+                elif raw_type_str in ['INDEX']:
+                    type_disp = 'Index'
+                else:
+                    type_disp = 'Equity'
+                    
+                exchange = q.get('exchange', '')
+                
+                results.append({
+                    'symbol': symbol,
+                    'name': name,
+                    'type': type_disp,
+                    'exchange': exchange,
+                    'is_isin': is_isin,
+                    'isin': query.upper() if is_isin else None
+                })
+                seen_symbols.add(symbol)
+        except Exception as e:
+            print(f"Search error: {e}")
+
+    return jsonify(results[:10])
 
 @app.route('/api/stocks', methods=['GET'])
 def get_stocks():
@@ -472,7 +573,7 @@ def get_stocks():
             'current_value_ref': current_value_converted,
             'pl_value_ref': pl_value_converted,
             'day_change_ref': day_change_converted,
-            # Financial metrics
+            # Financial & crypto metrics
             'day_change': details.get('day_change', 0.0),
             'day_change_percent': details.get('day_change_percent', 0.0),
             'sparkline': details.get('sparkline', []),
@@ -481,6 +582,11 @@ def get_stocks():
             'annual_dividend_ref': annual_div_converted,
             'fifty_two_week_high': details.get('fifty_two_week_high'),
             'fifty_two_week_low': details.get('fifty_two_week_low'),
+            'market_cap': details.get('market_cap'),
+            'volume_24h': details.get('volume_24h'),
+            'circulating_supply': details.get('circulating_supply'),
+            'fifty_day_average': details.get('fifty_day_average'),
+            'two_hundred_day_average': details.get('two_hundred_day_average'),
             'quote_type': details.get('quote_type', s.asset_type or 'Equity'),
             'analyst_consensus': consensus,
             'target_mean_price': details.get('target_mean_price'),
@@ -515,14 +621,19 @@ def get_stocks():
 def add_stock():
     data = request.json
     try:
+        raw_symbol = data['symbol'].upper().strip()
+        asset_type = data.get('asset_type', 'Equity')
+        currency = data.get('currency', 'USD').upper()
+        symbol = normalize_crypto_symbol(raw_symbol, asset_type, currency)
+
         new_stock = Stock(
-            symbol=data['symbol'].upper().strip(),
+            symbol=symbol,
             name=data['name'].strip(),
             purchase_date=data.get('purchase_date', 'Inconnue') or 'Inconnue',
             quantity=float(data['quantity']),
             purchase_price=float(data['purchase_price']),
-            currency=data.get('currency', 'USD').upper(),
-            asset_type=data.get('asset_type', 'Equity'),
+            currency=currency,
+            asset_type=asset_type,
             notes=data.get('notes', ''),
             manual_price=float(data['manual_price']) if data.get('manual_price') else None
         )
@@ -545,7 +656,11 @@ def update_stock(id):
     stock = Stock.query.get_or_404(id)
     data = request.json
     try:
-        new_symbol = data.get('symbol', stock.symbol).upper().strip()
+        raw_symbol = data.get('symbol', stock.symbol).upper().strip()
+        asset_type = data.get('asset_type', stock.asset_type or 'Equity')
+        currency = data.get('currency', stock.currency).upper()
+        new_symbol = normalize_crypto_symbol(raw_symbol, asset_type, currency)
+
         if new_symbol != stock.symbol:
             stock.ai_recommendation = None
             MARKET_CACHE.pop(f"stock_{stock.symbol}", None)
@@ -555,10 +670,9 @@ def update_stock(id):
         stock.name = data.get('name', stock.name)
         stock.quantity = float(data.get('quantity', stock.quantity))
         stock.purchase_price = float(data.get('purchase_price', stock.purchase_price))
-        stock.currency = data.get('currency', stock.currency).upper()
+        stock.currency = currency
         stock.purchase_date = data.get('purchase_date', stock.purchase_date) or 'Inconnue'
-        if 'asset_type' in data:
-            stock.asset_type = data.get('asset_type')
+        stock.asset_type = asset_type
         if 'notes' in data:
             stock.notes = data.get('notes')
         if 'manual_price' in data:
@@ -691,12 +805,13 @@ def fetch_rss_news(query, lang='fr', max_items=4):
         return []
 
 def fetch_multi_source_news(symbol, name):
-    """Aggregate real-time financial news across Yahoo Finance, Google News FR/CH and Global media."""
+    """Aggregate real-time financial & crypto news across Yahoo Finance, Google News FR/CH and Global media."""
     articles = []
     seen_titles = set()
 
     base_sym = symbol.split('.')[0] if '.' in symbol else symbol
-    clean_name = name.replace('Inc.', '').replace('ORD', '').replace('REIT', '').replace('Corp', '').replace('SA', '').strip()
+    clean_name = name.replace('Inc.', '').replace('ORD', '').replace('REIT', '').replace('Corp', '').replace('SA', '').replace('USD', '').replace('EUR', '').strip()
+    is_crypto = ('-USD' in symbol) or ('-EUR' in symbol) or ('-CHF' in symbol) or ('-CAD' in symbol) or any(c['short'] in symbol for c in POPULAR_CRYPTOS)
 
     def get_yf():
         try:
@@ -714,19 +829,25 @@ def fetch_multi_source_news(symbol, name):
             return []
 
     def get_gnews_fr():
+        if is_crypto:
+            return fetch_rss_news(f"{clean_name} {base_sym} crypto bitcoin marché", lang='fr', max_items=3)
         return fetch_rss_news(f"{clean_name} {base_sym} bourse", lang='fr', max_items=3)
 
     def get_gnews_en():
+        if is_crypto:
+            return fetch_rss_news(f"{clean_name} {base_sym} crypto market price analysis", lang='en', max_items=3)
         return fetch_rss_news(f"{clean_name} {base_sym} stock financial earnings", lang='en', max_items=3)
 
-    def get_swissquote():
+    def get_crypto_or_swiss():
+        if is_crypto:
+            return fetch_rss_news(f"{clean_name} blockchain cryptocurrency token", lang='en', max_items=3)
         return fetch_rss_news(f"{clean_name} {base_sym} swissquote OR suisse", lang='fr', max_items=3)
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         f_yf = executor.submit(get_yf)
         f_fr = executor.submit(get_gnews_fr)
         f_en = executor.submit(get_gnews_en)
-        f_sq = executor.submit(get_swissquote)
+        f_sq = executor.submit(get_crypto_or_swiss)
 
         for f in [f_yf, f_fr, f_en, f_sq]:
             try:
@@ -757,29 +878,73 @@ def analyze_stock(id):
     if not news_summary.strip():
         news_summary = "Aucune actualité récente trouvée."
 
-    financial_ratios = ""
-    try:
-        ticker = yf.Ticker(stock.symbol)
-        info = ticker.info or {}
-        pe = info.get('trailingPE')
-        div = info.get('dividendYield')
-        target = info.get('targetMeanPrice')
-        rec = info.get('recommendationKey')
-        
-        financial_ratios = f"- P/E (PER): {pe if pe else 'N/D'}\n"
-        financial_ratios += f"- Rendement dividende: {round(div*100, 2) if div else 'N/D'}%\n"
-        financial_ratios += f"- Prix cible moyen analystes: {target if target else 'N/D'} {stock.currency}\n"
-        financial_ratios += f"- Consensus analystes: {rec.upper() if rec else 'N/D'}\n"
-    except Exception:
-        financial_ratios = "Ratios non disponibles."
-
-    # 2. Get current price context
+    # 2. Get current price & metrics
     details = fetch_single_stock_details(stock.symbol, stock.purchase_price, stock.currency)
     current_price = details.get('current_price', stock.purchase_price)
     pl_percent = ((current_price - stock.purchase_price) / stock.purchase_price) * 100 if stock.purchase_price > 0 else 0.0
+    is_crypto = (stock.asset_type == 'Crypto') or (details.get('quote_type') == 'Crypto') or ('-USD' in stock.symbol)
 
-    # 3. Call Gemini
-    prompt = f"""
+    financial_ratios = ""
+    if is_crypto:
+        mcap = details.get('market_cap')
+        vol24 = details.get('volume_24h')
+        supply = details.get('circulating_supply')
+        high52 = details.get('fifty_two_week_high')
+        low52 = details.get('fifty_two_week_low')
+        ma50 = details.get('fifty_day_average')
+        ma200 = details.get('two_hundred_day_average')
+
+        financial_ratios = f"""- Capitalisation boursière (Market Cap) : {f"{mcap:,.0f} {stock.currency}" if mcap else 'N/D'}
+- Volume d'échange 24h : {f"{vol24:,.0f} {stock.currency}" if vol24 else 'N/D'}
+- Offre en circulation (Circulating Supply) : {f"{supply:,.0f}" if supply else 'N/D'}
+- Sommet 52 semaines : {high52 if high52 else 'N/D'} {stock.currency}
+- Creux 52 semaines : {low52 if low52 else 'N/D'} {stock.currency}
+- Moyenne mobile 50 jours : {round(ma50, 2) if ma50 else 'N/D'} {stock.currency}
+- Moyenne mobile 200 jours : {round(ma200, 2) if ma200 else 'N/D'} {stock.currency}"""
+
+        prompt = f"""
+Tu es un expert analyste et gestionnaire d'actifs numériques & cryptomonnaies senior.
+Analyse la position crypto suivante pour un investisseur individuel :
+
+INFORMATIONS DE LA POSITION :
+- Crypto-Actif : {stock.name} ({stock.symbol})
+- Type : Crypto-Actif (Actif Numérique)
+- Prix d'achat (PRU) : {stock.purchase_price} {stock.currency}
+- Prix actuel : {current_price} {stock.currency}
+- Plus/Moins-value latente : {pl_percent:+.2f}%
+- Quantité détenue : {stock.quantity} (Valeur: {(stock.quantity * current_price):.2f} {stock.currency})
+
+INDICATEURS ON-CHAIN, MARCHÉ & TECHNIQUES :
+{financial_ratios}
+
+ACTUALITÉS RÉCENTES DU MARCHÉ CRYPTO :
+{news_summary}
+
+CONSIGNES DE RÉPONSE :
+1. Fournis une analyse concise mais percutante en 3 parties en Markdown :
+   - 📌 **Dynamique de Marché & Tendances On-Chain** (Adoption, écosystème, volume et sentiment global)
+   - ⚖️ **Niveaux Techniques, Catalyseurs & Risques** (Supports/résistances clés, flux institutionnels, volatilité)
+   - 🎯 **Plan d'action & Stratégie recommandée** (Prise de bénéfices tactique, DCA, renforcement ou sécurisation)
+2. Termine OBLIGATOIREMENT ta réponse par la ligne exacte suivante (en majuscules) :
+   RECOMMANDATION FINALE : [ACHETER / CONSERVER / VENDRE]
+"""
+    else:
+        try:
+            ticker = yf.Ticker(stock.symbol)
+            info = ticker.info or {}
+            pe = info.get('trailingPE')
+            div = info.get('dividendYield')
+            target = info.get('targetMeanPrice')
+            rec = info.get('recommendationKey')
+            
+            financial_ratios = f"- P/E (PER): {pe if pe else 'N/D'}\n"
+            financial_ratios += f"- Rendement dividende: {round(div*100, 2) if div else 'N/D'}%\n"
+            financial_ratios += f"- Prix cible moyen analystes: {target if target else 'N/D'} {stock.currency}\n"
+            financial_ratios += f"- Consensus analystes: {rec.upper() if rec else 'N/D'}\n"
+        except Exception:
+            financial_ratios = "Ratios non disponibles."
+
+        prompt = f"""
 Tu es un gérant de portefeuille et analyste financier senior de Wall Street.
 Analyse l'actif suivant pour un investisseur individuel :
 
@@ -873,12 +1038,18 @@ def analyze_all_stocks():
             details = fetch_single_stock_details(stock.symbol, stock.purchase_price, stock.currency)
             current_price = details.get('current_price', stock.purchase_price)
             pl_percent = ((current_price - stock.purchase_price) / stock.purchase_price) * 100 if stock.purchase_price > 0 else 0.0
+            is_crypto = (stock.asset_type == 'Crypto') or (details.get('quote_type') == 'Crypto')
+
+            if is_crypto:
+                extra_str = f"Cap: {details.get('market_cap', 'N/D')} | Vol 24h: {details.get('volume_24h', 'N/D')}"
+            else:
+                extra_str = f"PER: {details.get('pe_ratio', 'N/D')} | Div: {details.get('dividend_yield', 'N/D')}%"
 
             prompt = f"""
-Tu es un gérant de portefeuille expert.
-Analyse l'actif {stock.name} ({stock.symbol}) :
-PRU: {stock.purchase_price} {stock.currency} | Cours: {current_price} {stock.currency} | Plus-value: {pl_percent:+.1f}% | PER: {details.get('pe_ratio', 'N/D')} | Div: {details.get('dividend_yield', 'N/D')}%
-Actualités récentes multi-sources :
+Tu es un gérant de portefeuille expert en actions et crypto-actifs.
+Analyse l'actif {stock.name} ({stock.symbol}) [Type: {stock.asset_type or 'Action'}] :
+PRU: {stock.purchase_price} {stock.currency} | Cours: {current_price} {stock.currency} | Plus-value: {pl_percent:+.1f}% | {extra_str}
+Actualités récentes :
 {news_summary}
 
 Donne une recommandation concise.
@@ -953,7 +1124,7 @@ def analyze_portfolio():
 
     prompt = f"""
 Tu es un chef stratégiste en investissement et gestionnaire de patrimoine senior de renommée mondiale.
-Effectue un AUDIT STRATÉGIQUE COMPLET ET DÉTAILLÉ du portefeuille suivant en distinguant clairement l'horizon COURT TERME et l'horizon LONG TERME :
+Effectue un AUDIT STRATÉGIQUE COMPLET ET DÉTAILLÉ du portefeuille suivant (comprenant actions, ETFs, fonds et/ou crypto-actifs) en distinguant clairement l'horizon COURT TERME et l'horizon LONG TERME :
 
 VALEUR TOTALE ESTIMÉE : {total_val_ref:,.2f} {ref_currency}
 NOMBRE DE LIGNES : {len(portfolio_lines)}
@@ -964,18 +1135,18 @@ DÉTAIL DES POSITIONS ACTUELLES :
 STRUCTURE EXIGÉE DU RAPPORT (en français, format Markdown riche et professionnel avec émojis et sous-titres) :
 
 1. 📊 **Diagnostic & Score de Santé Globale (0 à 100)**
-   - Score chiffré de diversification et robustesse globale.
+   - Score chiffré de diversification et robustesse globale (incluant actions, ETFs et exposition crypto).
    - Synthèse de la structure actuelle (forces, faiblesses majeures, concentration).
 
 2. ⚡ **Perspective & Stratégie Court Terme (1 à 6 mois — Tactique & Risques)**
-   - **Risques immédiats & Volatilité** : Analyse des lignes les plus exposées aux corrections à court terme.
+   - **Risques immédiats & Volatilité** : Analyse des lignes les plus exposées aux corrections à court terme (actions volatiles, cryptos).
    - **Prises de bénéfices tactiques** : Lignes où un allègement ou une sécurisation de plus-value est opportune.
    - **Opportunités tactiques** : Entrées potentielles ou renforcements à court terme.
 
 3. 🏛️ **Vision Stratégique Long Terme (3 à 5+ ans — Patrimoine & Rendement)**
-   - **Solidité des Fondamentaux & Mégatendances** : Capacité des entreprises détenues à croître durablement (qualité des bilans, barrières à l'entrée).
+   - **Solidité des Fondamentaux & Mégatendances** : Capacité des actifs détenus à croître durablement (qualité des bilans, adoption blockchain/technologique).
    - **Rendement & Effet Boule de Neige des Dividendes** : Pérennité et croissance des flux de trésorerie passifs.
-   - **Résilience Structurelle** : Exposition aux cycles macroéconomiques mondiaux, devises et inflation.
+   - **Résilience Structurelle & Allocation Crypto** : Équilibre global de l'exposition au risque et protection contre l'inflation.
 
 4. 🎯 **Plan d'Action & Arbitrages Recommandés**
    - 3 à 5 recommandations prioritaires claires et chiffrées pour optimiser le ratio rendement / risque.
@@ -1114,14 +1285,18 @@ def import_stocks():
             sym = item.get('symbol', '').strip().upper()
             if not sym:
                 continue
+            asset_type = item.get('asset_type', 'Equity')
+            currency = item.get('currency', 'USD').strip().upper()
+            norm_sym = normalize_crypto_symbol(sym, asset_type, currency)
+
             new_stock = Stock(
-                symbol=sym,
+                symbol=norm_sym,
                 name=item.get('name', sym),
                 purchase_date=item.get('purchase_date', 'Inconnue') or 'Inconnue',
                 quantity=float(item.get('quantity', 1)),
                 purchase_price=float(item.get('purchase_price', 0)),
-                currency=item.get('currency', 'USD').strip().upper(),
-                asset_type=item.get('asset_type', 'Equity'),
+                currency=currency,
+                asset_type=asset_type,
                 notes=item.get('notes', '')
             )
             db.session.add(new_stock)

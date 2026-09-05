@@ -53,11 +53,12 @@ Cliquez sur le bandeau **"Répartition & Allocation d'Actifs"** pour dérouler l
 
 ### 4. Formulaire d'Ajout d'une Position
 
-Ajoutez une action, un ETF, un fonds ou une crypto en quelques secondes :
+Ajoutez une action, un ETF, un fonds ou une **cryptomonnaie** en quelques secondes :
 
-* **Recherche dynamique** : Tapez 2 lettres (ex: *Apple, AAPL, LVMH, MC.PA, VWCE*) pour autocompléter le ticker, le nom et le type d'actif.
-* **Code Ticker** : Symbole boursier Yahoo Finance.
-* **Type d'actif** : Action (*Equity*), ETF (*Tracker*), Fonds (*Fund*), Crypto, Indice.
+* **Recherche dynamique** : Tapez un nom ou un ticker (ex: *Bitcoin, BTC, Ethereum, SOL, Apple, AAPL, MC.PA...*) pour autocompléter instantanément le ticker, le nom, le type d'actif et la devise de cotation.
+* **Support Cryptomonnaies** : Saisie par symbole court (*BTC, ETH, SOL, XRP, DOGE*) ou paire Yahoo Finance (*BTC-USD, ETH-EUR, SOL-USD*).
+* **Gestion des fractions et micro-valeurs** : Prise en charge précise des fractions de cryptos (ex: *0.0054 BTC*) et des cours inférieurs à 1$ (jusqu'à 6 décimales).
+* **Type d'actif** : Action (*Equity*), ETF (*Tracker*), Fonds (*Fund*), **Crypto-Actif (*Crypto*)**, Indice.
 * **Quantité** & **PRU** : Quantité détenue et Prix de Revient Unitaire d'achat.
 * **Devise** : Devise de cotation native du titre (USD, EUR, CHF, GBP, CAD...).
 
@@ -66,7 +67,7 @@ Ajoutez une action, un ETF, un fonds ou une crypto en quelques secondes :
 ### 5. Suivi des Positions & Outils d'Analyse
 
 #### Outils de filtrage et de tri :
-* **Filtres rapides** : Affichez *Tous*, uniquement les *Actions*, les *ETFs* ou les *Fonds*.
+* **Filtres rapides** : Affichez *Tous*, uniquement les *Actions*, les *ETFs*, les *Fonds* ou les **🪙 Cryptos**.
 * **Recherche instantanée** : Filtrez en temps réel dans vos positions détenues.
 * **Tri personnalisé** : Par *Plus forte valeur*, *Plus-value (%)*, *Performance du jour*, *Ordre alphabétique*.
 * **Vues Grille & Liste** : Basculez entre vue cartes et vue tableau.
@@ -74,7 +75,10 @@ Ajoutez une action, un ETF, un fonds ou une crypto en quelques secondes :
 #### Sur chaque position :
 * 📉 **Sparkline 7 jours** : Mini-graphique de tendance intégré sur la carte.
 * 📈 **Graphique Historique Interactif** : Cliquez sur l'icône de graphique pour afficher l'évolution du cours sur **1 Mois, 6 Mois, 1 An et 5 Ans**.
-* 🤖 **Analyse IA Gemini** : Analyse des actualités récentes, ratios financiers (P/E, rendement dividende, consensus analystes) et recommandation (**ACHETER / CONSERVER / VENDRE**).
+* 🤖 **Analyse IA Gemini** : 
+  - Pour les actions : analyse des ratios (PER, dividendes, consensus analystes).
+  - Pour les **cryptos** : analyse de la dynamique de marché, volume 24h, market cap, niveaux techniques et actualités crypto (CoinDesk, Cointelegraph, etc.).
+  - Recommandation claire (**ACHETER / CONSERVER / VENDRE**).
 * ✏️ **Édition inline** : Modifiez quantité, PRU, date ou devise sans supprimer la ligne.
 * 🗑️ **Suppression sécurisée** : Modale moderne de confirmation.
 
